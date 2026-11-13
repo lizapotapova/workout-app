@@ -7,7 +7,7 @@ import { AddSetForm } from '@/components/add-set-form';
 import { SetRow } from '@/components/set-row';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { dayKey, parseDayKey } from '@/lib/dates';
 import { deleteSet, deleteSetsOnDay, loadSets, type WorkoutSet } from '@/lib/sets-storage';
 
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
-    paddingBottom: Spacing.three,
+    paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.two,
   },
   form: {
