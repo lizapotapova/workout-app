@@ -47,19 +47,32 @@ A "workout" currently means all the sets logged on one day; there is no separate
 
 Weight unit: a kg/lb toggle sits next to the weight box. Each set stores the unit it was entered in (no conversion); the last chosen unit is remembered (key `weight-unit-v1`). Sets logged before this have no unit.
 
+## UI/UX overhaul (user's 7-step list, 2026-11-13)
+
+The user logs in the gym, one-handed, between sets: logging a set should take as few taps as possible. Steps are done one at a time, stopping after each for a phone test.
+
+- [x] 1. Today's workout is the first tab; Calendar is the second tab, for history (its "today's workout" summary was removed).
+- [ ] 2. Exercise picker: recent exercises as chips, search, "add new" (replaces typing the name).
+- [ ] 3. On picking: pre-fill weight/reps from the last session (the user's wording; the "Suggested" box with "Use" stays), show "Last time: weight × reps", + and − buttons (reps ±1, weight ± the Settings step).
+- [ ] 4. One card per exercise with numbered sets (exists; make it faster one-handed).
+- [ ] 5. Move kg/lb into Settings.
+- [ ] 6. One accent colour for the primary button, today's date, workout days (extend cobalt to the day page).
+- [ ] 7. `expo-haptics` on set saved; Undo bar after deleting instead of confirmation pop-ups (proposed in the plan; the user said "go ahead" without comment).
+
 ## How the code is organised
 
 The user wants the bottom tab bar kept, with Calendar and Settings tabs (they removed the Log page, then asked for the bar back on 2026-11-13). The stopwatch can become another tab.
 
 - `src/app/_layout.tsx` — root layout, renders the tab bar from `src/components/app-tabs.tsx` (NativeTabs).
-- `src/app/(calendar)/` — the Calendar tab, a Stack (`_layout.tsx`). In SDK 58 `Stack` is imported from `expo-router/stack`, not `expo-router`.
+- `src/app/(today)/` — the Today tab and first screen (`/`): a one-page Stack whose `index.tsx` shows `DayPage` for today's date.
+- `src/components/day-page.tsx` — `DayPage({ date, titlePrefix })`, the whole day page (workout name, paste bar, add form, exercise cards, copy/delete). Shared by the Today tab and the calendar's day route. Reloads its data on focus, because the same day can be open in both tabs.
+- `src/app/calendar/` — the Calendar tab (`/calendar`), a Stack (`_layout.tsx`). In SDK 58 `Stack` is imported from `expo-router/stack`, not `expo-router`.
   - `index.tsx` — the month grid (home screen, `/`). Tapping a date opens the day page.
-  - `day/[date].tsx` — the day page (`/day/2026-11-13`): add-set form plus that day's sets, with delete. One FlatList with `contentInsetAdjustmentBehavior="automatic"` so content starts below the transparent header.
+  - `day/[date].tsx` — the route `/calendar/day/2026-11-13`; it only renders `DayPage`. The page is one FlatList with `contentInsetAdjustmentBehavior="automatic"` so content starts below the transparent header.
 - `src/components/add-set-form.tsx` — the add-set form (with kg/lb switch). Takes a `day`.
 - `src/components/exercise-card.tsx` — one exercise on the day page: numbered title, a cell per set, and the selected set's note box + delete.
 - `src/hooks/use-autosave.ts` — debounced save used by the note boxes and the workout name.
 - `src/lib/sets-storage.ts` — the `WorkoutSet` type plus loading/saving sets with AsyncStorage (key `workout-sets-v1`). Sets are kept sorted newest date first. Also stores one workout name per day (key `workout-names-v1`).
-- `src/components/workout-summary.tsx` — compact read-only workout (one text line per exercise), used under the calendar.
 - `src/lib/exercises.ts` — `groupByExercise` and `formatSet`.
 - `src/app/settings.tsx` — the Settings tab: weeks between steps, lower/upper step sizes, per-exercise body part and overrides. Autosaves.
 - `src/components/progression-hint.tsx` — the "Suggested: …" box shown in the add form.

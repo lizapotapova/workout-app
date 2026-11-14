@@ -13,7 +13,16 @@ export default function AppTabs() {
       backgroundColor={colors.background}
       indicatorColor={colors.backgroundElement}
       labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="(calendar)">
+      <NativeTabs.Trigger name="(today)">
+        <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf="dumbbell"
+          src={require('@/assets/images/tabIcons/home.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="calendar">
         <NativeTabs.Trigger.Label>Calendar</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf="calendar"

@@ -1,6 +1,6 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Stack } from 'expo-router/stack';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -49,10 +49,18 @@ function formatShortDay(day: string): string {
   return parsed ? parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : day;
 }
 
-/** The page for one day, opened by tapping a date in the calendar. */
-export default function DayScreen() {
-  // The date comes from the page address, e.g. /day/2026-11-13.
-  const { date } = useLocalSearchParams<{ date: string }>();
+type DayPageProps = {
+  /** The day to show, e.g. "2026-11-13". */
+  date: string;
+  /** Put in front of the title, e.g. "Today" gives "Today, Nov 13". */
+  titlePrefix?: string;
+};
+
+/**
+ * The page for one day: its workout and the form to add to it. Used for the Today tab
+ * and for the page that opens when a date is tapped in the calendar.
+ */
+export function DayPage({ date, titlePrefix }: DayPageProps) {
   const day = parseDayKey(date);
   const theme = useTheme();
 
@@ -89,18 +97,23 @@ export default function DayScreen() {
     );
   });
 
-  useEffect(() => {
-    loadSets()
-      .then(setSets)
-      .catch(() => {})
-      .finally(() => setLoaded(true));
-    loadWorkoutName(date)
-      .then(setWorkoutName)
-      .catch(() => {});
-    loadExerciseNotes(date)
-      .then(setExerciseNotes)
-      .catch(() => {});
-  }, [date]);
+  // Re-read the day every time this page comes into view. The same day can be open in
+  // two places (the Today tab and the calendar), and each must show the other's changes.
+  useFocusEffect(
+    useCallback(() => {
+      loadSets()
+        .then(setSets)
+        .catch(() => {})
+        .finally(() => setLoaded(true));
+      loadWorkoutName(date)
+        .then(setWorkoutName)
+        .catch(() => {});
+      loadExerciseNotes(date)
+        .then(setExerciseNotes)
+        .catch(() => {});
+      // The `set…` functions never change; they are listed because the code checker asks.
+    }, [date, setSets, setLoaded, setWorkoutName, setExerciseNotes]),
+  );
 
   if (!day) {
     return (
@@ -113,11 +126,9 @@ export default function DayScreen() {
   }
 
   // Short title such as "Fri, Nov 13" so it fits next to the back button.
-  const title = day.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  const title = titlePrefix
+    ? `${titlePrefix}, ${day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+    : day.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const daySets = sets.filter((set) => dayKey(new Date(set.createdAt)) === date);
   const exercises = groupByExercise(daySets);
   const formOpen = formChoice ?? (loaded && daySets.length === 0);
