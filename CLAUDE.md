@@ -93,8 +93,18 @@ How it is built (`src/lib/progression.ts`, pure and testable; storage in `src/li
 
 ## Look and feel
 
+On 2026-11-13 the user sent a mockup (`~/Desktop/workt.jpg`) and asked for the design to look more like it. It is being done in pieces:
+
+- [x] A. Colours: the app is always dark (`Appearance.setColorScheme('dark')` in the root layout, `userInterfaceStyle: "dark"` in app.json) with near-black pages, lighter cards and one lime accent (`Colors.dark` in `src/constants/theme.ts`). Text on lime is dark. Red stays for delete.
+- [ ] B. Today header: small date above a big "Today" title, Settings as an icon at the top right, and only three tabs (Today, Calendar, Stopwatch).
+- [ ] C. Exercise chips in a row at the top; one entry card with big − / + steppers for Weight and Reps, one set at a time, "Add set 3" button, "Last time" at the top right of the card.
+- [ ] D. Logged exercise cards: "2 sets done", set rows with lines between, lime "Next session: 145 lb × 8" hint; "Add a note to this workout" row.
+- [ ] E. Calendar: big "Calendar" title, month name centred between arrows, tapping a day selects it (filled lime) and shows a summary card with "Open workout", plus a legend.
+
+Earlier notes (still true unless replaced above):
+
 Set on 2026-11-13 when the user asked for the calendar page to look better (extended to the day page and tab bar in the UI/UX overhaul, step 6):
 
-- One accent colour, cobalt blue (`accent`, with `accentSoft` for fills and `separator` for thin lines, in `src/constants/theme.ts`). Red stays reserved for delete.
+- One accent colour (was cobalt blue, now lime) (`accent`, with `accentSoft` for fills and `separator` for thin lines, in `src/constants/theme.ts`). Red stays reserved for delete.
 - Headline text and day numbers use the rounded system font (`Fonts.rounded`).
 - Calendar: the month name is the page headline (no separate "Calendar" title); workout days are filled circles in `accentSoft`, today has an accent ring.

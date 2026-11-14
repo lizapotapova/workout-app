@@ -21,15 +21,19 @@ export const Colors = {
     /** Thin lines between rows. */
     separator: '#D8D9DE',
   },
+  // The look the app actually uses (it is always dark, see `src/app/_layout.tsx`):
+  // near-black pages, slightly lighter cards, and one lime accent.
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    accent: '#86A8FF',
-    accentSoft: '#1A2850',
-    separator: '#34363B',
+    text: '#F4F5F6',
+    background: '#0B0C0F',
+    backgroundElement: '#17191E',
+    backgroundSelected: '#24272E',
+    textSecondary: '#9499A3',
+    /** The app's one accent colour: lime. Text on top of it is dark (`background`). */
+    accent: '#D3F36B',
+    /** A dark olive wash of the accent, for workout days and soft buttons. */
+    accentSoft: '#2B3218',
+    separator: '#272A31',
   },
 } as const;
 
