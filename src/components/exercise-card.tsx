@@ -68,20 +68,22 @@ export function ExerciseCard({
         </ThemedText>
         <Pressable
           onPress={() => onAddSet(sets[sets.length - 1])}
-          hitSlop={10}
+          hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`Add another set of ${name}`}
-          style={({ pressed }) => pressed && styles.pressed}>
-          <ThemedText type="small" themeColor="textSecondary">
-            + Set
-          </ThemedText>
+          style={({ pressed }) => [
+            styles.addSet,
+            { backgroundColor: theme.background },
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText type="smallBold">+ Set</ThemedText>
         </Pressable>
         <Pressable
           onPress={onDeleteExercise}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel={`Delete exercise ${name}`}
-          style={({ pressed }) => pressed && styles.pressed}>
+          style={({ pressed }) => [styles.deleteExercise, pressed && styles.pressed]}>
           <ThemedText themeColor="textSecondary">✕</ThemedText>
         </Pressable>
       </View>
@@ -113,7 +115,7 @@ export function ExerciseCard({
                   {/* A small pencil marks a set that has a note. */}
                   {set.note ? '  ✎' : ''}
                 </ThemedText>
-                <ThemedText type="small" style={isSelected && { color: theme.background }}>
+                <ThemedText style={[styles.setValue, isSelected && { color: theme.background }]}>
                   {formatSet(set)}
                 </ThemedText>
               </Pressable>
@@ -289,12 +291,34 @@ const styles = StyleSheet.create({
   title: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
   titleText: {
     flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
   },
-  // Each set is its own cell, with a small gap between cells.
+  // "+ Set" is a real button, big enough to hit with a thumb between sets.
+  addSet: {
+    height: 30,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    justifyContent: 'center',
+  },
+  deleteExercise: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setValue: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: 600,
+    fontVariant: ['tabular-nums'],
+  },
+  // Each set is its own cell, with a small gap between cells. The cells are tall enough
+  // to tap one-handed, but still slim so the whole workout fits with little scrolling.
   rows: {
     gap: 3,
   },
@@ -302,9 +326,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 3,
-    borderRadius: 6,
+    minHeight: 30,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
   lastTime: {
     fontSize: 13,
