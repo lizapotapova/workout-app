@@ -5,10 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WorkoutSummary } from '@/components/workout-summary';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey } from '@/lib/dates';
-import { loadSets } from '@/lib/sets-storage';
+import { groupByExercise } from '@/lib/exercises';
+import { loadSets, loadWorkoutName, type WorkoutSet } from '@/lib/sets-storage';
 
 // Weeks start on Monday. For Sunday-first, move 'Sun' to the front and set this to 0.
 const WEEK_STARTS_ON = 1;
@@ -33,8 +35,8 @@ export default function CalendarScreen() {
   const theme = useTheme();
   const today = new Date();
 
-  // The days that have at least one logged set, e.g. "2026-11-13".
-  const [workoutDays, setWorkoutDays] = useState<Set<string>>(new Set());
+  const [sets, setSets] = useState<WorkoutSet[]>([]);
+  const [todayName, setTodayName] = useState('');
   // The month being shown, stored as the 1st of that month.
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
 
@@ -43,15 +45,22 @@ export default function CalendarScreen() {
   useFocusEffect(
     useCallback(() => {
       loadSets()
-        .then((sets) =>
-          setWorkoutDays(new Set(sets.map((set) => dayKey(new Date(set.createdAt))))),
-        )
+        .then(setSets)
+        .catch(() => {});
+      loadWorkoutName(dayKey(new Date()))
+        .then(setTodayName)
         .catch(() => {});
     }, []),
   );
 
   const cells = buildMonthCells(month.getFullYear(), month.getMonth());
   const todayKey = dayKey(today);
+  // The days that have at least one logged set, e.g. "2026-11-13".
+  const workoutDays = new Set(sets.map((set) => dayKey(new Date(set.createdAt))));
+  // Today's workout, shown below the calendar if there is one.
+  const todayExercises = groupByExercise(
+    sets.filter((set) => dayKey(new Date(set.createdAt)) === todayKey),
+  );
 
   function changeMonth(step: number) {
     setMonth(new Date(month.getFullYear(), month.getMonth() + step, 1));
@@ -133,6 +142,20 @@ export default function CalendarScreen() {
               })}
             </View>
           </View>
+
+          {todayExercises.length > 0 && (
+            // Tapping today's workout opens today's page, where it can be changed.
+            <Pressable
+              onPress={() => openDay(todayKey)}
+              accessibilityRole="button"
+              accessibilityLabel="Open today's workout"
+              style={({ pressed }) => [styles.today, pressed && styles.pressed]}>
+              <ThemedText type="smallBold">
+                Today{todayName.trim() !== '' ? ` · ${todayName.trim()}` : ''}
+              </ThemedText>
+              <WorkoutSummary exercises={todayExercises} />
+            </Pressable>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -154,6 +177,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.three,
     paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.three,
+  },
+  today: {
+    gap: Spacing.two,
+  },
+  pressed: {
+    opacity: 0.6,
   },
   monthHeader: {
     flexDirection: 'row',

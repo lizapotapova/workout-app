@@ -18,36 +18,25 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAutosave } from '@/hooks/use-autosave';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey, parseDayKey } from '@/lib/dates';
+import { groupByExercise, type ExerciseGroup } from '@/lib/exercises';
 import {
+  addSets,
+  deleteExerciseNotesOnDay,
   deleteSet,
+  deleteSets,
   deleteSetsOnDay,
+  exerciseKey,
+  loadExerciseNotes,
   loadSets,
   loadWorkoutName,
-  saveSetNote,
+  saveExerciseNote,
   saveWorkoutName,
+  type SetChanges,
+  updateSet,
   type WorkoutSet,
 } from '@/lib/sets-storage';
 
 const DELETE_COLOR = '#E5484D';
-
-type ExerciseGroup = { name: string; sets: WorkoutSet[] };
-
-/**
- * Groups a day's sets by exercise, like a written workout: exercises in the order they
- * were first done, and each exercise's sets in the order they were done.
- * "squat" and "Squat" count as the same exercise.
- */
-function groupByExercise(sets: WorkoutSet[]): ExerciseGroup[] {
-  const oldestFirst = [...sets].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const groups = new Map<string, ExerciseGroup>();
-  for (const set of oldestFirst) {
-    const key = set.exercise.trim().toLowerCase();
-    const group = groups.get(key);
-    if (group) group.sets.push(set);
-    else groups.set(key, { name: set.exercise, sets: [set] });
-  }
-  return [...groups.values()];
-}
 
 /** The page for one day, opened by tapping a date in the calendar. */
 export default function DayScreen() {
@@ -59,8 +48,13 @@ export default function DayScreen() {
   const [sets, setSets] = useState<WorkoutSet[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
+  // The general note of each exercise on this day, e.g. { squat: "felt easy" }.
+  const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
+  // Whether the add-exercise form is showing. `null` means the user hasn't chosen yet:
+  // then it shows only while the day is still empty, to leave room for the workout.
+  const [formChoice, setFormChoice] = useState<boolean | null>(null);
 
-  const nameAutosave = useAutosave((name) => {
+  const nameAutosave = useAutosave((name: string) => {
     saveWorkoutName(date, name).catch(() =>
       Alert.alert('Could not save the workout name', 'Please try typing it again.'),
     );
@@ -73,6 +67,9 @@ export default function DayScreen() {
       .finally(() => setLoaded(true));
     loadWorkoutName(date)
       .then(setWorkoutName)
+      .catch(() => {});
+    loadExerciseNotes(date)
+      .then(setExerciseNotes)
       .catch(() => {});
   }, [date]);
 
@@ -94,18 +91,46 @@ export default function DayScreen() {
   });
   const daySets = sets.filter((set) => dayKey(new Date(set.createdAt)) === date);
   const exercises = groupByExercise(daySets);
+  const formOpen = formChoice ?? (loaded && daySets.length === 0);
 
-  function saveNote(set: WorkoutSet, note: string) {
-    saveSetNote(set.id, note)
+  function saveSetChanges(set: WorkoutSet, changes: SetChanges) {
+    updateSet(set.id, changes)
       .then(setSets)
-      .catch(() => Alert.alert('Could not save the note', 'Please try typing it again.'));
+      .catch(() => Alert.alert('Could not save the change', 'Please try again.'));
+  }
+
+  // Adds one more set to an exercise, as a copy of its last set (without the note).
+  // It is stamped just after that set so it lands at the end of the same exercise.
+  function addAnotherSet(last: WorkoutSet) {
+    addSets([
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        exercise: last.exercise,
+        weight: last.weight,
+        unit: last.unit,
+        reps: last.reps,
+        createdAt: new Date(new Date(last.createdAt).getTime() + 1).toISOString(),
+      },
+    ])
+      .then(setSets)
+      .catch(() => Alert.alert('Could not add the set', 'Please try again.'));
+  }
+
+  function changeExerciseNote(exercise: string, note: string) {
+    setExerciseNotes((notes) => ({ ...notes, [exerciseKey(exercise)]: note }));
+  }
+
+  function saveNoteForExercise(exercise: string, note: string) {
+    saveExerciseNote(date, exercise, note).catch(() =>
+      Alert.alert('Could not save the note', 'Please try typing it again.'),
+    );
   }
 
   function showDeleteError() {
     Alert.alert('Could not delete', 'Please try again.');
   }
 
-  // Both deletes ask first, because there is no undo.
+  // Every delete asks first, because there is no undo.
   function confirmDeleteSet(set: WorkoutSet) {
     Alert.alert('Delete this set?', `${set.exercise}, ${set.reps} reps`, [
       { text: 'Cancel', style: 'cancel' },
@@ -117,11 +142,32 @@ export default function DayScreen() {
     ]);
   }
 
+  function confirmDeleteExercise(exercise: ExerciseGroup) {
+    const count = exercise.sets.length;
+    Alert.alert(
+      `Delete ${exercise.name}?`,
+      `This removes the exercise and ${count === 1 ? 'its 1 set' : `all ${count} of its sets`}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete exercise',
+          style: 'destructive',
+          onPress: () =>
+            deleteSets(exercise.sets.map((set) => set.id))
+              .then(setSets)
+              .then(() => saveExerciseNote(date, exercise.name, ''))
+              .then(() => changeExerciseNote(exercise.name, ''))
+              .catch(showDeleteError),
+        },
+      ],
+    );
+  }
+
   function confirmDeleteWorkout() {
     const count = daySets.length;
     Alert.alert(
       'Delete this workout?',
-      `This removes ${count === 1 ? 'the 1 set' : `all ${count} sets`} on ${title}, and the workout name.`,
+      `This removes ${count === 1 ? 'the 1 set' : `all ${count} sets`} on ${title}, with the workout name and notes.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -131,7 +177,11 @@ export default function DayScreen() {
             deleteSetsOnDay(date)
               .then(setSets)
               .then(() => saveWorkoutName(date, ''))
-              .then(() => setWorkoutName(''))
+              .then(() => deleteExerciseNotesOnDay(date))
+              .then(() => {
+                setWorkoutName('');
+                setExerciseNotes({});
+              })
               .catch(showDeleteError),
         },
       ],
@@ -156,20 +206,36 @@ export default function DayScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={styles.header}>
-            <TextInput
-              style={[styles.workoutName, { color: theme.text }]}
-              placeholder="Workout name (e.g. Glutes)"
-              placeholderTextColor={theme.textSecondary}
-              value={workoutName}
-              onChangeText={(text) => {
-                setWorkoutName(text);
-                nameAutosave.change(text);
-              }}
-              onBlur={nameAutosave.flush}
-              autoCapitalize="sentences"
-              returnKeyType="done"
-            />
-            <AddSetForm day={date} onSaved={setSets} />
+            <View style={styles.nameRow}>
+              <TextInput
+                style={[styles.workoutName, { color: theme.text }]}
+                placeholder="Workout name"
+                placeholderTextColor={theme.textSecondary}
+                value={workoutName}
+                onChangeText={(text) => {
+                  setWorkoutName(text);
+                  nameAutosave.change(text);
+                }}
+                onBlur={nameAutosave.flush}
+                autoCapitalize="sentences"
+                returnKeyType="done"
+              />
+              <Pressable
+                onPress={() => setFormChoice(!formOpen)}
+                hitSlop={8}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.formToggle,
+                  { backgroundColor: theme.backgroundElement },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold">{formOpen ? 'Hide form' : '+ Exercise'}</ThemedText>
+              </Pressable>
+            </View>
+            {/* The form is hidden rather than removed, so a half-entered exercise is kept. */}
+            <View style={!formOpen && styles.hidden}>
+              <AddSetForm day={date} onSaved={setSets} />
+            </View>
           </View>
         }
         ListHeaderComponentStyle={styles.headerSpacing}
@@ -178,8 +244,13 @@ export default function DayScreen() {
             number={index + 1}
             name={item.name}
             sets={item.sets}
+            note={exerciseNotes[exerciseKey(item.name)] ?? ''}
+            onNoteChange={(note) => changeExerciseNote(item.name, note)}
+            onNoteSave={(note) => saveNoteForExercise(item.name, note)}
             onDeleteSet={confirmDeleteSet}
-            onNoteChange={saveNote}
+            onDeleteExercise={() => confirmDeleteExercise(item)}
+            onChangeSet={saveSetChanges}
+            onAddSet={addAnotherSet}
           />
         )}
         ListFooterComponent={
@@ -197,7 +268,7 @@ export default function DayScreen() {
         ListEmptyComponent={
           loaded ? (
             <ThemedText themeColor="textSecondary" style={styles.empty}>
-              No workout on this day yet. Add a set above.
+              No workout on this day yet. Add an exercise above.
             </ThemedText>
           ) : undefined
         }
@@ -207,30 +278,45 @@ export default function DayScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Spacing here is deliberately tight so a whole workout fits on screen with little scrolling.
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: BottomTabInset + Spacing.three,
-    gap: Spacing.two,
+    gap: 6,
   },
   header: {
-    gap: Spacing.three,
+    gap: Spacing.two,
   },
   headerSpacing: {
-    marginBottom: Spacing.two,
+    marginBottom: Spacing.one,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   workoutName: {
-    fontSize: 24,
+    flex: 1,
+    fontSize: 20,
     fontWeight: 600,
     paddingVertical: Spacing.one,
   },
+  formToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  hidden: {
+    display: 'none',
+  },
   deleteWorkout: {
     alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: Spacing.three,
+    paddingVertical: 10,
+    marginTop: Spacing.two,
   },
   pressed: {
     opacity: 0.5,

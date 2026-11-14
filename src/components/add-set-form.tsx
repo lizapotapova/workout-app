@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey, parseDayKey } from '@/lib/dates';
+import { parseReps, parseWeight } from '@/lib/numbers';
 import {
   addSets,
   loadUnit,
@@ -20,14 +21,6 @@ const MAX_SETS = 20;
 /** What is typed into one set's row. */
 type SetInput = { weight: string; reps: string };
 const EMPTY_ROW: SetInput = { weight: '', reps: '' };
-
-/** Turns typed text like "62,5" or "62.5" into a number. Returns null if it isn't a valid number. */
-function parseNumber(text: string): number | null {
-  const trimmed = text.trim().replace(',', '.');
-  if (trimmed === '') return null;
-  const value = Number(trimmed);
-  return Number.isFinite(value) ? value : null;
-}
 
 /**
  * The date and time to store on a new set. For today (or no day given) that's right now.
@@ -109,16 +102,16 @@ export function AddSetForm({ day, onSaved }: Props) {
       const isEmpty = row.weight.trim() === '' && row.reps.trim() === '';
       if (isEmpty && values.length > 0) break;
 
-      const weightValue = parseNumber(row.weight);
-      const repsValue = parseNumber(row.reps);
-      if (weightValue === null || weightValue < 0) {
+      const weightValue = parseWeight(row.weight);
+      const repsValue = parseReps(row.reps);
+      if (weightValue === null) {
         Alert.alert(
           `Enter the weight for set ${i + 1} as a number`,
           'Use 0 for bodyweight exercises.',
         );
         return;
       }
-      if (repsValue === null || repsValue < 1 || !Number.isInteger(repsValue)) {
+      if (repsValue === null) {
         Alert.alert(`Enter the reps for set ${i + 1} as a whole number`);
         return;
       }
@@ -327,8 +320,8 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.two,
   },
   stepperButton: {
-    width: 36,
-    height: 36,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -354,13 +347,13 @@ const styles = StyleSheet.create({
   },
   input: {
     fontSize: 16,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: Spacing.two,
     borderRadius: 12,
   },
   button: {
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderRadius: 12,
   },
 });

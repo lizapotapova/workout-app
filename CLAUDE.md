@@ -31,12 +31,17 @@ A workout log:
 - [x] Day page — tapping a date opens a page for that day (its sets + the add-set form, which logs onto that date).
 - [x] Delete a set (✕ on its row) and delete a whole workout (= all sets on that day), both with a confirmation.
 - [x] Add form: a Sets stepper (1–20) and a Weight + Reps row for every set, so each set can have its own numbers. Sets can be added all at once or one at a time: the exercise name and rows stay until every set is added (added rows get a ✓ and lock; the next row is pre-filled with the previous set's numbers). The user logs set by set during the workout and does not want to retype the exercise name.
-- [x] Day page laid out like the user's own notes (screenshot 2026-11-13): a workout name for the day (e.g. "Glutes"), then numbered exercises, each with one cell per set ("170 lb • 12"). Tapping a cell opens that set's note and delete.
+- [x] Day page laid out like the user's own notes (screenshot 2026-11-13): a workout name for the day (e.g. "Glutes"), then numbered exercise boxes. On the day page each set is its own row inside the box ("Set 1 … 170 lb • 12"; the user picked this look on 2026-11-13, day page only). The calendar summary still uses side-by-side cells.
+- [x] Edit a set: tapping a set's row shows editable Weight and Reps (autosaved when valid) plus the note and delete. A dashed "+ Add set" row adds another set to that exercise, copied from its last set.
+- [x] Calendar screen shows today's workout (read-only summary) below the month grid when there is one; tapping it opens today's page.
+- [x] Delete a whole exercise (✕ next to its name, with confirmation). Exercise numbers are computed from the list, so they renumber automatically.
+- [x] Compact day page (user wants to see the whole workout with little scrolling): tight spacing, each set row is its own slim cell (the user wants sets visibly separated into cells), "+ Set" moved next to the exercise name, and the add form collapsed behind a "+ Exercise" button once the day has sets.
+- [x] General note per exercise per day: a small "Note" line at the bottom of each exercise box, autosaved (key `exercise-notes-v1`, entries keyed `day|exercise name lowercased`).
 - [ ] Progressive overload from a user-entered formula
 - [x] Notes: a notes box on each set on the day page, saved automatically (shortly after typing stops, on blur, and when the page closes). The user asked for notes per set, not per workout.
 - [ ] Stopwatch
 
-Not yet decided / not built: editing a set. A "workout" currently means all the sets logged on one day; there is no separate workout record yet.
+A "workout" currently means all the sets logged on one day; there is no separate workout record yet.
 
 Weight unit: a kg/lb toggle sits next to the weight box. Each set stores the unit it was entered in (no conversion); the last chosen unit is remembered (key `weight-unit-v1`). Sets logged before this have no unit.
 
@@ -52,6 +57,9 @@ The user wants the bottom tab bar kept, currently with a single Calendar tab (th
 - `src/components/exercise-card.tsx` — one exercise on the day page: numbered title, a cell per set, and the selected set's note box + delete.
 - `src/hooks/use-autosave.ts` — debounced save used by the note boxes and the workout name.
 - `src/lib/sets-storage.ts` — the `WorkoutSet` type plus loading/saving sets with AsyncStorage (key `workout-sets-v1`). Sets are kept sorted newest date first. Also stores one workout name per day (key `workout-names-v1`).
+- `src/components/workout-summary.tsx` — read-only exercise boxes with set cells, used under the calendar.
+- `src/lib/exercises.ts` — `groupByExercise` and `formatSet`.
+- `src/lib/numbers.ts` — `parseNumber` / `parseWeight` / `parseReps` for typed input.
 - `src/lib/dates.ts` — `dayKey` / `parseDayKey` (local-time `YYYY-MM-DD`).
 
 ## Notes for the progressive overload piece
