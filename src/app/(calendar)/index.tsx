@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WorkoutSummary } from '@/components/workout-summary';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey } from '@/lib/dates';
 import { groupByExercise } from '@/lib/exercises';
@@ -75,42 +75,53 @@ export default function CalendarScreen() {
     setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   }
 
+  const todaySetCount = todayExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <ThemedText type="subtitle">Calendar</ThemedText>
-
+          {/* The month name is the page's headline. Tapping it jumps back to today. */}
           <View style={styles.monthHeader}>
+            <Pressable
+              onPress={goToToday}
+              accessibilityLabel="Go to today"
+              style={styles.monthTitle}>
+              <ThemedText style={styles.monthName}>
+                {month.toLocaleDateString(undefined, { month: 'long' })}
+              </ThemedText>
+              <ThemedText style={styles.year} themeColor="textSecondary">
+                {month.getFullYear()}
+              </ThemedText>
+            </Pressable>
             <Pressable
               onPress={() => changeMonth(-1)}
               hitSlop={8}
               accessibilityLabel="Previous month"
-              style={[styles.arrow, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText>‹</ThemedText>
-            </Pressable>
-            <Pressable onPress={goToToday} accessibilityLabel="Go to today">
-              <ThemedText type="smallBold">
-                {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-              </ThemedText>
+              style={({ pressed }) => [
+                styles.arrow,
+                { backgroundColor: theme.backgroundElement },
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText style={[styles.arrowText, { color: theme.accent }]}>‹</ThemedText>
             </Pressable>
             <Pressable
               onPress={() => changeMonth(1)}
               hitSlop={8}
               accessibilityLabel="Next month"
-              style={[styles.arrow, { backgroundColor: theme.backgroundElement }]}>
-              <ThemedText>›</ThemedText>
+              style={({ pressed }) => [
+                styles.arrow,
+                { backgroundColor: theme.backgroundElement },
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText style={[styles.arrowText, { color: theme.accent }]}>›</ThemedText>
             </Pressable>
           </View>
 
           <View>
             <View style={styles.week}>
               {WEEKDAYS.map((name) => (
-                <ThemedText
-                  key={name}
-                  type="small"
-                  themeColor="textSecondary"
-                  style={styles.weekday}>
+                <ThemedText key={name} themeColor="textSecondary" style={styles.weekday}>
                   {name}
                 </ThemedText>
               ))}
@@ -122,21 +133,31 @@ export default function CalendarScreen() {
 
                 const key = dayKey(date);
                 const hasWorkout = workoutDays.has(key);
+                const isToday = key === todayKey;
                 return (
-                  <Pressable key={key} style={styles.cell} onPress={() => openDay(key)}>
+                  <Pressable
+                    key={key}
+                    style={({ pressed }) => [styles.cell, pressed && styles.pressed]}
+                    onPress={() => openDay(key)}
+                    accessibilityLabel={`${date.toLocaleDateString(undefined, {
+                      day: 'numeric',
+                      month: 'long',
+                    })}${hasWorkout ? ', has a workout' : ''}${isToday ? ', today' : ''}`}>
+                    {/* A day with a workout is filled in; today has a ring around it. */}
                     <View
                       style={[
                         styles.dayCircle,
-                        key === todayKey && { borderWidth: 1, borderColor: theme.textSecondary },
+                        hasWorkout && { backgroundColor: theme.accentSoft },
+                        isToday && { borderWidth: 2, borderColor: theme.accent },
                       ]}>
-                      <ThemedText type={hasWorkout ? 'smallBold' : 'small'}>
+                      <ThemedText
+                        style={[
+                          styles.dayNumber,
+                          hasWorkout && { color: theme.accent, fontWeight: 700 },
+                        ]}>
                         {date.getDate()}
                       </ThemedText>
                     </View>
-                    {/* The dot marks a day that has at least one logged set. */}
-                    <View
-                      style={[styles.dot, hasWorkout && { backgroundColor: theme.text }]}
-                    />
                   </Pressable>
                 );
               })}
@@ -150,9 +171,15 @@ export default function CalendarScreen() {
               accessibilityRole="button"
               accessibilityLabel="Open today's workout"
               style={({ pressed }) => [styles.today, pressed && styles.pressed]}>
-              <ThemedText type="smallBold">
-                Today{todayName.trim() !== '' ? ` · ${todayName.trim()}` : ''}
-              </ThemedText>
+              <View style={styles.todayHeader}>
+                <ThemedText style={styles.todayTitle}>
+                  {todayName.trim() !== '' ? todayName.trim() : "Today's workout"}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {todayName.trim() !== '' ? 'Today, ' : ''}
+                  {todaySetCount} {todaySetCount === 1 ? 'set' : 'sets'}
+                </ThemedText>
+              </View>
               <WorkoutSummary exercises={todayExercises} />
             </Pressable>
           )}
@@ -172,29 +199,47 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: MaxContentWidth,
   },
+  // Spacing is kept tight so the month and today's workout fit on one screen.
   content: {
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: BottomTabInset + Spacing.two,
     gap: Spacing.three,
-  },
-  today: {
-    gap: Spacing.two,
-  },
-  pressed: {
-    opacity: 0.6,
   },
   monthHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  monthTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
+  },
+  monthName: {
+    fontFamily: Fonts?.rounded,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: 700,
+  },
+  year: {
+    fontFamily: Fonts?.rounded,
+    fontSize: 18,
+    lineHeight: 36,
+    fontWeight: 500,
   },
   arrow: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  arrowText: {
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: 600,
   },
   week: {
     flexDirection: 'row',
@@ -202,7 +247,10 @@ const styles = StyleSheet.create({
   weekday: {
     flex: 1,
     textAlign: 'center',
-    paddingBottom: Spacing.two,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 500,
+    paddingBottom: Spacing.one,
   },
   grid: {
     flexDirection: 'row',
@@ -212,8 +260,7 @@ const styles = StyleSheet.create({
     // 7 cells per row.
     width: `${100 / 7}%`,
     alignItems: 'center',
-    paddingVertical: Spacing.one,
-    gap: Spacing.half,
+    paddingVertical: 3,
   },
   dayCircle: {
     width: 36,
@@ -222,9 +269,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  dayNumber: {
+    fontFamily: Fonts?.rounded,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: 500,
+    fontVariant: ['tabular-nums'],
+  },
+  today: {
+    gap: Spacing.two,
+  },
+  todayHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  todayTitle: {
+    flexShrink: 1,
+    fontFamily: Fonts?.rounded,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: 700,
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

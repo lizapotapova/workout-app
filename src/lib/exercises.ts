@@ -23,3 +23,8 @@ export function groupByExercise(sets: WorkoutSet[]): ExerciseGroup[] {
 export function formatSet(set: WorkoutSet): string {
   return `${set.weight}${set.unit ? ` ${set.unit}` : ''} • ${set.reps}`;
 }
+
+/** A set as very short text, e.g. "170lb•12", for places where space is tight. */
+export function formatSetCompact(set: WorkoutSet): string {
+  return `${set.weight}${set.unit ?? ''}•${set.reps}`;
+}

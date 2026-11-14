@@ -31,7 +31,7 @@ A workout log:
 - [x] Day page — tapping a date opens a page for that day (its sets + the add-set form, which logs onto that date).
 - [x] Delete a set (✕ on its row) and delete a whole workout (= all sets on that day), both with a confirmation.
 - [x] Add form: a Sets stepper (1–20) and a Weight + Reps row for every set, so each set can have its own numbers. Sets can be added all at once or one at a time: the exercise name and rows stay until every set is added (added rows get a ✓ and lock; the next row is pre-filled with the previous set's numbers). The user logs set by set during the workout and does not want to retype the exercise name.
-- [x] Day page laid out like the user's own notes (screenshot 2026-11-13): a workout name for the day (e.g. "Glutes"), then numbered exercise boxes. On the day page each set is its own row inside the box ("Set 1 … 170 lb • 12"; the user picked this look on 2026-11-13, day page only). The calendar summary still uses side-by-side cells.
+- [x] Day page laid out like the user's own notes (screenshot 2026-11-13): a workout name for the day (e.g. "Glutes"), then numbered exercise boxes. On the day page each set is its own row inside the box ("Set 1 … 170 lb • 12"; the user picked this look on 2026-11-13, day page only). The calendar summary is a compact note-style box: one line per exercise ("1. Glute bridge  170lb•12  170lb•12"), so the month and today's workout fit on one screen.
 - [x] Edit a set: tapping a set's row shows editable Weight and Reps (autosaved when valid) plus the note and delete. A dashed "+ Add set" row adds another set to that exercise, copied from its last set.
 - [x] Calendar screen shows today's workout (read-only summary) below the month grid when there is one; tapping it opens today's page.
 - [x] Delete a whole exercise (✕ next to its name, with confirmation). Exercise numbers are computed from the list, so they renumber automatically.
@@ -57,7 +57,7 @@ The user wants the bottom tab bar kept, currently with a single Calendar tab (th
 - `src/components/exercise-card.tsx` — one exercise on the day page: numbered title, a cell per set, and the selected set's note box + delete.
 - `src/hooks/use-autosave.ts` — debounced save used by the note boxes and the workout name.
 - `src/lib/sets-storage.ts` — the `WorkoutSet` type plus loading/saving sets with AsyncStorage (key `workout-sets-v1`). Sets are kept sorted newest date first. Also stores one workout name per day (key `workout-names-v1`).
-- `src/components/workout-summary.tsx` — read-only exercise boxes with set cells, used under the calendar.
+- `src/components/workout-summary.tsx` — compact read-only workout (one text line per exercise), used under the calendar.
 - `src/lib/exercises.ts` — `groupByExercise` and `formatSet`.
 - `src/lib/numbers.ts` — `parseNumber` / `parseWeight` / `parseReps` for typed input.
 - `src/lib/dates.ts` — `dayKey` / `parseDayKey` (local-time `YYYY-MM-DD`).
@@ -65,3 +65,11 @@ The user wants the bottom tab bar kept, currently with a single Calendar tab (th
 ## Notes for the progressive overload piece
 
 In the user's own notes each set looks like `170lb•12 ⬆️(2)`. The arrow and the number in brackets mean they increased or decreased weight or reps. On 2026-11-13 they said to ignore the arrows and brackets for now; ask what exactly the number means before building it.
+
+## Look and feel
+
+Set on 2026-11-13 when the user asked for the calendar page to look better (so far applied to the calendar page only, not the day page):
+
+- One accent colour, cobalt blue (`accent`, with `accentSoft` for fills and `separator` for thin lines, in `src/constants/theme.ts`). Red stays reserved for delete.
+- Headline text and day numbers use the rounded system font (`Fonts.rounded`).
+- Calendar: the month name is the page headline (no separate "Calendar" title); workout days are filled circles in `accentSoft`, today has an accent ring.

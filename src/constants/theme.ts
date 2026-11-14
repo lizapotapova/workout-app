@@ -14,6 +14,12 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    /** The app's one accent colour: a cobalt blue, like a 20 kg competition plate. */
+    accent: '#2457D6',
+    /** A pale wash of the accent, used to fill the days that have a workout. */
+    accentSoft: '#E1E9FC',
+    /** Thin lines between rows. */
+    separator: '#D8D9DE',
   },
   dark: {
     text: '#ffffff',
@@ -21,6 +27,9 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    accent: '#86A8FF',
+    accentSoft: '#1A2850',
+    separator: '#34363B',
   },
 } as const;
 
