@@ -106,7 +106,7 @@ export function ExerciseCard({
                 accessibilityLabel={`Set ${index + 1}: ${formatSet(set)}`}
                 style={[
                   styles.setRow,
-                  { backgroundColor: isSelected ? theme.text : theme.background },
+                  { backgroundColor: isSelected ? theme.accent : theme.background },
                 ]}>
                 <ThemedText
                   type="small"

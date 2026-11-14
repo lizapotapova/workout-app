@@ -332,10 +332,12 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
                 accessibilityRole="button"
                 style={({ pressed }) => [
                   styles.formToggle,
-                  { backgroundColor: theme.backgroundElement },
+                  { backgroundColor: theme.accentSoft },
                   pressed && styles.pressed,
                 ]}>
-                <ThemedText type="smallBold">{formOpen ? 'Hide form' : '+ Exercise'}</ThemedText>
+                <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                  {formOpen ? 'Hide form' : '+ Exercise'}
+                </ThemedText>
               </Pressable>
             </View>
             {/* Offered on every day except the one the workout was copied from. */}

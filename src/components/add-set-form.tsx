@@ -425,7 +425,7 @@ export function AddSetForm({ day, history, unit, settings, onSaved }: Props) {
         accessibilityRole="button"
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: theme.text, opacity: pressed ? 0.7 : 1 },
+          { backgroundColor: theme.accent, opacity: pressed ? 0.7 : 1 },
         ]}>
         <ThemedText type="smallBold" style={{ color: theme.background }}>
           {setCount > 1 ? `Add set ${savedCount + 1}` : 'Add set'}
@@ -576,9 +576,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: 12,
   },
+  // The main button of the page: the accent colour, and tall enough for a thumb.
   button: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 13,
     borderRadius: 12,
   },
 });
