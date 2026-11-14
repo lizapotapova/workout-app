@@ -57,7 +57,7 @@ The user logs in the gym, one-handed, between sets: logging a set should take as
 - [x] 4. One card per exercise with numbered sets (already existed). Made thumb-friendly: set cells 30 tall (36 was "a little bit too much to scroll" for the user; 26 was the original) with bolder numbers, "+ Set" a real pill button, larger ✕ target. Kept slim because the user earlier asked for a compact page.
 - [x] 5. kg/lb moved to Settings ("Weight unit" card at the top; the toggle is gone from the add form). The user chose "convert everything" (2026-11-13): the day page converts every set to the Settings unit for display with `inUnit` (170 lb shows as 77.1 kg, one decimal); saved sets keep their original unit and number unless their weight is edited. New sets are saved in the Settings unit. Progression runs on the converted sets; step sizes in Settings are plain numbers applied in the current unit.
 - [x] 6. Cobalt accent everywhere: the form's main "Add set" button, the selected set row, "+ Exercise" (soft fill), and the selected tab in the tab bar, besides today's date and workout days on the calendar. Red is only for delete.
-- [ ] 7. `expo-haptics` on set saved; Undo bar after deleting instead of confirmation pop-ups (proposed in the plan; the user said "go ahead" without comment).
+- [x] 7. `expo-haptics` (`src/lib/haptics.ts`): a "success" buzz when a set is saved (form and "+ Set"), a light tap on delete/undo. Deleting a set, exercise or workout no longer asks first: it happens at once and an "Undo" bar floats above the stopwatch bar for 6 seconds (restores sets, workout name and exercise notes; per-set notes come back with the sets).
 
 ## How the code is organised
 

@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { timeOnDay } from '@/lib/dates';
+import { buzzSaved } from '@/lib/haptics';
 import { exerciseKey } from '@/lib/exercises';
 import { parseNumber, parseReps, parseWeight } from '@/lib/numbers';
 import {
@@ -145,6 +146,7 @@ export function AddSetForm({ day, history, unit, settings, onSaved }: Props) {
 
     addSets(newSets)
       .then((sets) => {
+        buzzSaved();
         onSaved(sets);
 
         const nowSaved = savedCount + newSets.length;

@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { Stack } from 'expo-router/stack';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { AddSetForm } from '@/components/add-set-form';
 import { ExerciseCard } from '@/components/exercise-card';
 import { ThemedText } from '@/components/themed-text';
@@ -18,6 +20,7 @@ import { BottomTabInset, StopwatchBarSpace, MaxContentWidth, Spacing } from '@/c
 import { useAutosave } from '@/hooks/use-autosave';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey, parseDayKey, timeOnDay } from '@/lib/dates';
+import { buzzLight, buzzSaved } from '@/lib/haptics';
 import { exerciseKey, groupByExercise, type ExerciseGroup } from '@/lib/exercises';
 import {
   DEFAULT_SETTINGS,
@@ -51,6 +54,10 @@ import {
 } from '@/lib/sets-storage';
 
 const DELETE_COLOR = '#E5484D';
+/** How long the "Undo" bar stays after a delete. */
+const UNDO_SECONDS = 6;
+// The height of the iPhone tab bar plus the floating stopwatch bar above it.
+const BARS_BELOW = 49 + StopwatchBarSpace;
 
 /** "Nov 12" for "2026-11-12". */
 function formatShortDay(day: string): string {
@@ -72,6 +79,7 @@ type DayPageProps = {
 export function DayPage({ date, titlePrefix }: DayPageProps) {
   const day = parseDayKey(date);
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   // The sets exactly as they are saved on the phone, each in the unit it was logged in.
   const [savedSets, setSets] = useState<WorkoutSet[]>([]);
@@ -108,6 +116,15 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
       // The `set…` functions never change; they are listed because the code checker asks.
     }, [setCopied, setUnit]),
   );
+
+  // The "Undo" bar shown after a delete, or `null` when there is nothing to undo.
+  const [undo, setUndo] = useState<{ label: string; restore: () => void } | null>(null);
+  // The bar goes away by itself after a few seconds.
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(() => setUndo(null), UNDO_SECONDS * 1000);
+    return () => clearTimeout(timer);
+  }, [undo]);
 
   const nameAutosave = useAutosave((name: string) => {
     saveWorkoutName(date, name).catch(() =>
@@ -183,6 +200,7 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
       },
     ])
       .then(setSets)
+      .then(buzzSaved)
       .catch(() => Alert.alert('Could not add the set', 'Please try again.'));
   }
 
@@ -200,37 +218,49 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
     Alert.alert('Could not delete', 'Please try again.');
   }
 
-  // Every delete asks first, because there is no undo.
-  function confirmDeleteSet(set: WorkoutSet) {
-    Alert.alert('Delete this set?', `${set.exercise}, ${set.reps} reps`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteSet(set.id).then(setSets).catch(showDeleteError),
+  // Deleting happens straight away, without asking first. Instead an "Undo" bar shows
+  // for a few seconds; `restore` puts back exactly what was deleted.
+  function offerUndo(label: string, restore: () => Promise<unknown>) {
+    buzzLight();
+    setUndo({
+      label,
+      restore: () => {
+        setUndo(null);
+        buzzLight();
+        restore().catch(() => Alert.alert('Could not undo', 'Please add it again by hand.'));
       },
-    ]);
+    });
   }
 
-  function confirmDeleteExercise(exercise: ExerciseGroup) {
-    const count = exercise.sets.length;
-    Alert.alert(
-      `Delete ${exercise.name}?`,
-      `This removes the exercise and ${count === 1 ? 'its 1 set' : `all ${count} of its sets`}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete exercise',
-          style: 'destructive',
-          onPress: () =>
-            deleteSets(exercise.sets.map((set) => set.id))
-              .then(setSets)
-              .then(() => saveExerciseNote(date, exercise.name, ''))
-              .then(() => changeExerciseNote(exercise.name, ''))
-              .catch(showDeleteError),
-        },
-      ],
-    );
+  /** The sets with these ids exactly as saved on the phone (not converted to another unit). */
+  function savedCopies(ids: string[]): WorkoutSet[] {
+    return savedSets.filter((set) => ids.includes(set.id));
+  }
+
+  function deleteSetWithUndo(set: WorkoutSet) {
+    const removed = savedCopies([set.id]);
+    deleteSet(set.id)
+      .then(setSets)
+      .then(() => offerUndo('Set deleted', () => addSets(removed).then(setSets)))
+      .catch(showDeleteError);
+  }
+
+  function deleteExerciseWithUndo(exercise: ExerciseGroup) {
+    const removed = savedCopies(exercise.sets.map((set) => set.id));
+    const note = exerciseNotes[exerciseKey(exercise.name)] ?? '';
+    deleteSets(removed.map((set) => set.id))
+      .then(setSets)
+      .then(() => saveExerciseNote(date, exercise.name, ''))
+      .then(() => {
+        changeExerciseNote(exercise.name, '');
+        offerUndo(`${exercise.name} deleted`, () =>
+          addSets(removed)
+            .then(setSets)
+            .then(() => saveExerciseNote(date, exercise.name, note))
+            .then(() => changeExerciseNote(exercise.name, note)),
+        );
+      })
+      .catch(showDeleteError);
   }
 
   function copyThisWorkout() {
@@ -269,29 +299,30 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
     );
   }
 
-  function confirmDeleteWorkout() {
-    const count = daySets.length;
-    Alert.alert(
-      'Delete this workout?',
-      `This removes ${count === 1 ? 'the 1 set' : `all ${count} sets`} on ${title}, with the workout name and notes.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete workout',
-          style: 'destructive',
-          onPress: () =>
-            deleteSetsOnDay(date)
-              .then(setSets)
-              .then(() => saveWorkoutName(date, ''))
-              .then(() => deleteExerciseNotesOnDay(date))
-              .then(() => {
-                setWorkoutName('');
-                setExerciseNotes({});
-              })
-              .catch(showDeleteError),
-        },
-      ],
-    );
+  function deleteWorkoutWithUndo() {
+    const removed = savedCopies(daySets.map((set) => set.id));
+    const name = workoutName;
+    const notes = exerciseNotes;
+    deleteSetsOnDay(date)
+      .then(setSets)
+      .then(() => saveWorkoutName(date, ''))
+      .then(() => deleteExerciseNotesOnDay(date))
+      .then(() => {
+        setWorkoutName('');
+        setExerciseNotes({});
+        offerUndo('Workout deleted', async () => {
+          setSets(await addSets(removed));
+          await saveWorkoutName(date, name);
+          setWorkoutName(name);
+          // The notes are saved under each exercise's name, so match them up again.
+          for (const exercise of groupByExercise(removed)) {
+            const note = notes[exerciseKey(exercise.name)];
+            if (note) await saveExerciseNote(date, exercise.name, note);
+          }
+          setExerciseNotes(notes);
+        });
+      })
+      .catch(showDeleteError);
   }
 
   // The whole page is one scrolling list: the workout name and add form first, then one
@@ -386,8 +417,8 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
             note={exerciseNotes[exerciseKey(item.name)] ?? ''}
             onNoteChange={(note) => changeExerciseNote(item.name, note)}
             onNoteSave={(note) => saveNoteForExercise(item.name, note)}
-            onDeleteSet={confirmDeleteSet}
-            onDeleteExercise={() => confirmDeleteExercise(item)}
+            onDeleteSet={deleteSetWithUndo}
+            onDeleteExercise={() => deleteExerciseWithUndo(item)}
             onChangeSet={saveSetChanges}
             onAddSet={addAnotherSet}
           />
@@ -404,7 +435,7 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
                 </ThemedText>
               </Pressable>
               <Pressable
-                onPress={confirmDeleteWorkout}
+                onPress={deleteWorkoutWithUndo}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.footerButton, pressed && styles.pressed]}>
                 <ThemedText type="smallBold" style={{ color: DELETE_COLOR }}>
@@ -422,11 +453,64 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
           ) : undefined
         }
       />
+      {undo && (
+        <View
+          pointerEvents="box-none"
+          style={[styles.undoWrap, { bottom: insets.bottom + BARS_BELOW + Spacing.two }]}>
+          <View style={[styles.undoBar, { backgroundColor: theme.text }]}>
+            <ThemedText style={[styles.undoLabel, { color: theme.background }]} numberOfLines={1}>
+              {undo.label}
+            </ThemedText>
+            <Pressable
+              onPress={undo.restore}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Undo: ${undo.label}`}
+              style={({ pressed }) => [
+                styles.undoButton,
+                { backgroundColor: theme.background },
+                pressed && styles.pressed,
+              ]}>
+              <ThemedText type="smallBold">Undo</ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  undoWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  undoBar: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    height: 48,
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingLeft: Spacing.three,
+    paddingRight: 6,
+  },
+  undoLabel: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: 600,
+  },
+  undoButton: {
+    height: 36,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    justifyContent: 'center',
+  },
   // Spacing here is deliberately tight so a whole workout fits on screen with little scrolling.
   content: {
     width: '100%',
