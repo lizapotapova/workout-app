@@ -52,7 +52,7 @@ Weight unit: a kg/lb toggle sits next to the weight box. Each set stores the uni
 The user logs in the gym, one-handed, between sets: logging a set should take as few taps as possible. Steps are done one at a time, stopping after each for a phone test.
 
 - [x] 1. Today's workout is the first tab; Calendar is the second tab, for history (its "today's workout" summary was removed).
-- [ ] 2. Exercise picker: recent exercises as chips, search, "add new" (replaces typing the name).
+- [x] 2. Exercise picker in `add-set-form.tsx`: stage 1 shows a search box and up to 8 recent exercises as chips plus an "+ Add “…”" chip; stage 2 (after picking) shows the name with "Change" and the set rows.
 - [ ] 3. On picking: pre-fill weight/reps from the last session (the user's wording; the "Suggested" box with "Use" stays), show "Last time: weight × reps", + and − buttons (reps ±1, weight ± the Settings step).
 - [ ] 4. One card per exercise with numbered sets (exists; make it faster one-handed).
 - [ ] 5. Move kg/lb into Settings.

@@ -25,8 +25,8 @@ const MAX_SETS = 20;
 type SetInput = { weight: string; reps: string };
 const EMPTY_ROW: SetInput = { weight: '', reps: '' };
 
-/** How many matching exercise names to offer while typing. */
-const MAX_NAME_MATCHES = 4;
+/** How many exercises to offer as chips at once. */
+const MAX_CHIPS = 8;
 
 type Props = {
   /** The day to log the sets on, e.g. "2026-11-13". */
@@ -40,12 +40,13 @@ type Props = {
 };
 
 /**
- * The form for adding one exercise: its name, how many sets, and a Weight and Reps box
- * for every set, so each set can have its own numbers.
+ * The form for adding one exercise. It has two stages:
  *
- * While an exercise name is being typed, earlier exercises with a matching name are
- * offered to tap. Once the name matches an earlier exercise, a box suggests the weight
- * and reps for this time, worked out from the progression formula.
+ * 1. Pick the exercise: the most recently done exercises are shown as chips to tap.
+ *    The search box narrows them down, and offers to add what was typed as a new one.
+ * 2. Enter the sets: how many, and a Weight and Reps box for every set, so each set can
+ *    have its own numbers. A box suggests the weight and reps for this time, worked out
+ *    from the progression formula.
  *
  * Sets can be added all at once or one at a time as the workout goes on. The exercise
  * name and the rows stay until every set has been added; only then does the form clear.
@@ -53,7 +54,10 @@ type Props = {
 export function AddSetForm({ day, history, settings, onSaved }: Props) {
   const theme = useTheme();
 
+  // The exercise that was picked. Empty while the picker is showing.
   const [exercise, setExercise] = useState('');
+  // What is typed into the picker's search box.
+  const [search, setSearch] = useState('');
   const [setCount, setSetCount] = useState(1);
   // What has been typed for each set. Rows that were never touched are simply missing.
   const [rows, setRows] = useState<SetInput[]>([]);
@@ -85,16 +89,14 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
   /** Empties the form, ready for the next exercise. The number of sets and the unit stay. */
   function startNextExercise() {
     setExercise('');
+    setSearch('');
     setRows([]);
     setSavedCount(0);
   }
 
   function submit() {
     const name = exercise.trim();
-    if (name === '') {
-      Alert.alert('Enter an exercise name');
-      return;
-    }
+    if (name === '') return;
 
     // Take every filled-in row after the ones already added, stopping at the first empty row.
     const values: { weight: number; reps: number }[] = [];
@@ -155,20 +157,31 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
       .catch(() => Alert.alert('Could not save', 'Please try again.'));
   }
 
-  // Names of earlier exercises that contain what has been typed so far, most recent first.
-  const typedKey = exerciseKey(exercise);
+  // Every exercise done before, most recent first ("squat" and "Squat" count as one).
   const knownNames = new Map<string, string>();
   for (const set of history) {
     const key = exerciseKey(set.exercise);
     if (!knownNames.has(key)) knownNames.set(key, set.exercise.trim());
   }
-  const nameMatches =
-    typedKey === '' || knownNames.has(typedKey) || savedCount > 0
-      ? []
-      : [...knownNames.entries()]
-          .filter(([key]) => key.includes(typedKey))
-          .slice(0, MAX_NAME_MATCHES)
-          .map(([, name]) => name);
+  // The chips: the recent exercises, narrowed down to the search text if there is any.
+  const searchKey = exerciseKey(search);
+  const chips = [...knownNames.entries()]
+    .filter(([key]) => key.includes(searchKey))
+    .slice(0, MAX_CHIPS)
+    .map(([, name]) => name);
+  // Typed text that isn't an existing exercise can be added as a new one.
+  const canAddNew = searchKey !== '' && !knownNames.has(searchKey);
+
+  function pickExercise(name: string) {
+    setExercise(name);
+    setSearch('');
+  }
+
+  /** The keyboard's Done key: picks the exercise with that exact name, or adds it as new. */
+  function pickTyped() {
+    if (searchKey === '') return;
+    pickExercise(knownNames.get(searchKey) ?? search.trim());
+  }
 
   // What the formula suggests for this exercise today. Hidden once sets are being added.
   const suggestion =
@@ -198,37 +211,90 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
   ];
   const stepperButtonStyle = [styles.stepperButton, { backgroundColor: theme.background }];
 
+  // Stage 1: no exercise picked yet, so show only the picker.
+  if (exercise === '') {
+    return (
+      <View style={styles.form}>
+        <TextInput
+          style={inputStyle}
+          placeholder={knownNames.size > 0 ? 'Search or add an exercise' : 'Exercise (e.g. Squat)'}
+          placeholderTextColor={theme.textSecondary}
+          accessibilityLabel="Search or add an exercise"
+          value={search}
+          onChangeText={setSearch}
+          onSubmitEditing={pickTyped}
+          autoCapitalize="sentences"
+          autoCorrect={false}
+          returnKeyType="done"
+          clearButtonMode="while-editing"
+        />
+
+        {searchKey === '' && chips.length > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Recent
+          </ThemedText>
+        )}
+
+        {(chips.length > 0 || canAddNew) && (
+          <View style={styles.chips}>
+            {chips.map((name) => (
+              <Pressable
+                key={name}
+                onPress={() => pickExercise(name)}
+                accessibilityRole="button"
+                accessibilityLabel={`Pick ${name}`}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { backgroundColor: theme.backgroundElement },
+                  pressed && styles.disabled,
+                ]}>
+                <ThemedText style={styles.chipText}>{name}</ThemedText>
+              </Pressable>
+            ))}
+            {canAddNew && (
+              <Pressable
+                onPress={() => pickExercise(search.trim())}
+                accessibilityRole="button"
+                accessibilityLabel={`Add new exercise ${search.trim()}`}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { backgroundColor: theme.accentSoft },
+                  pressed && styles.disabled,
+                ]}>
+                <ThemedText style={[styles.chipText, { color: theme.accent }]}>
+                  + Add “{search.trim()}”
+                </ThemedText>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // Stage 2: the exercise is picked, so show its sets.
   return (
     <View style={styles.form}>
-      <TextInput
-        style={inputStyle}
-        placeholder="Exercise (e.g. Squat)"
-        placeholderTextColor={theme.textSecondary}
-        value={exercise}
-        onChangeText={setExercise}
-        autoCapitalize="sentences"
-        autoCorrect={false}
-        returnKeyType="done"
-      />
-
-      {nameMatches.length > 0 && (
-        <View style={styles.matches}>
-          {nameMatches.map((name) => (
-            <Pressable
-              key={name}
-              onPress={() => setExercise(name)}
-              accessibilityRole="button"
-              accessibilityLabel={`Use exercise name ${name}`}
-              style={({ pressed }) => [
-                styles.match,
-                { backgroundColor: theme.backgroundElement },
-                pressed && styles.disabled,
-              ]}>
-              <ThemedText type="small">{name}</ThemedText>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      <View style={styles.row}>
+        <ThemedText style={styles.picked} numberOfLines={2}>
+          {exercise}
+        </ThemedText>
+        {/* The exercise can be swapped until its first set has been added. */}
+        {savedCount === 0 && (
+          <Pressable
+            onPress={startNextExercise}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Pick a different exercise"
+            style={({ pressed }) => [
+              styles.change,
+              { backgroundColor: theme.backgroundElement },
+              pressed && styles.disabled,
+            ]}>
+            <ThemedText type="smallBold">Change</ThemedText>
+          </Pressable>
+        )}
+      </View>
 
       {suggestion && <ProgressionHint suggestion={suggestion} onUse={fillFromSuggestion} />}
 
@@ -344,15 +410,33 @@ const styles = StyleSheet.create({
   form: {
     gap: Spacing.two,
   },
-  matches: {
+  chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: Spacing.two,
   },
-  match: {
-    paddingHorizontal: 10,
-    paddingVertical: Spacing.one,
-    borderRadius: 8,
+  // Chips are tall enough to hit easily with a thumb.
+  chip: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  chipText: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: 500,
+  },
+  picked: {
+    flex: 1,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: 700,
+  },
+  change: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
   row: {
     flexDirection: 'row',
