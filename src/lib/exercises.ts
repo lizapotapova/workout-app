@@ -1,5 +1,10 @@
 import { type WorkoutSet } from '@/lib/sets-storage';
 
+/** The name used to match an exercise, so "squat" and "Squat " count as the same. */
+export function exerciseKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
 export type ExerciseGroup = { name: string; sets: WorkoutSet[] };
 
 /**
@@ -11,7 +16,7 @@ export function groupByExercise(sets: WorkoutSet[]): ExerciseGroup[] {
   const oldestFirst = [...sets].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const groups = new Map<string, ExerciseGroup>();
   for (const set of oldestFirst) {
-    const key = set.exercise.trim().toLowerCase();
+    const key = exerciseKey(set.exercise);
     const group = groups.get(key);
     if (group) group.sets.push(set);
     else groups.set(key, { name: set.exercise, sets: [set] });

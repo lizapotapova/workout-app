@@ -4,6 +4,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
+import { StopwatchBar } from '@/components/stopwatch-bar';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -13,6 +14,8 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <AppTabs />
+      {/* Drawn last so it floats on top of every screen. */}
+      <StopwatchBar />
     </ThemeProvider>
   );
 }

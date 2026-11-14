@@ -37,9 +37,11 @@ A workout log:
 - [x] Delete a whole exercise (✕ next to its name, with confirmation). Exercise numbers are computed from the list, so they renumber automatically.
 - [x] Compact day page (user wants to see the whole workout with little scrolling): tight spacing, each set row is its own slim cell (the user wants sets visibly separated into cells), "+ Set" moved next to the exercise name, and the add form collapsed behind a "+ Exercise" button once the day has sets.
 - [x] General note per exercise per day: a small "Note" line at the bottom of each exercise box, autosaved (key `exercise-notes-v1`, entries keyed `day|exercise name lowercased`).
-- [ ] Progressive overload from a user-entered formula
+- [x] Progressive overload: suggestion box in the add form (with a "Use" button and tappable matching exercise names) and a Settings tab for the formula's numbers.
 - [x] Notes: a notes box on each set on the day page, saved automatically (shortly after typing stops, on blur, and when the page closes). The user asked for notes per set, not per workout.
-- [ ] Stopwatch
+- [x] Copy and paste a whole workout between days: "Copy workout" at the bottom of a day, then a "Paste" bar at the top of other days (key `copied-workout-v1`). Copies exercises, sets and the name, not notes; pasting adds to the day.
+- [x] Stopwatch tab: start, stop, lap, reset (`src/app/stopwatch.tsx`, logic in `src/lib/stopwatch.ts`, key `stopwatch-v1`). It stores the clock time of the Start press instead of counting, so it keeps running across tabs and while the app is closed.
+- [x] Floating stopwatch bar on every screen: `src/components/stopwatch-bar.tsx`, drawn in the root layout above the tab bar. Always shown, also at zero (on 2026-11-13 the user said it must not disappear after Reset); hidden only on the Stopwatch tab. Scrolling pages add `StopwatchBarSpace` to their bottom padding so it never covers the last row.
 
 A "workout" currently means all the sets logged on one day; there is no separate workout record yet.
 
@@ -47,7 +49,7 @@ Weight unit: a kg/lb toggle sits next to the weight box. Each set stores the uni
 
 ## How the code is organised
 
-The user wants the bottom tab bar kept, currently with a single Calendar tab (they removed the Log page, then asked for the bar back on 2026-11-13). New features like the stopwatch can become new tabs.
+The user wants the bottom tab bar kept, with Calendar and Settings tabs (they removed the Log page, then asked for the bar back on 2026-11-13). The stopwatch can become another tab.
 
 - `src/app/_layout.tsx` — root layout, renders the tab bar from `src/components/app-tabs.tsx` (NativeTabs).
 - `src/app/(calendar)/` — the Calendar tab, a Stack (`_layout.tsx`). In SDK 58 `Stack` is imported from `expo-router/stack`, not `expo-router`.
@@ -59,12 +61,22 @@ The user wants the bottom tab bar kept, currently with a single Calendar tab (th
 - `src/lib/sets-storage.ts` — the `WorkoutSet` type plus loading/saving sets with AsyncStorage (key `workout-sets-v1`). Sets are kept sorted newest date first. Also stores one workout name per day (key `workout-names-v1`).
 - `src/components/workout-summary.tsx` — compact read-only workout (one text line per exercise), used under the calendar.
 - `src/lib/exercises.ts` — `groupByExercise` and `formatSet`.
+- `src/app/settings.tsx` — the Settings tab: weeks between steps, lower/upper step sizes, per-exercise body part and overrides. Autosaves.
+- `src/components/progression-hint.tsx` — the "Suggested: …" box shown in the add form.
 - `src/lib/numbers.ts` — `parseNumber` / `parseWeight` / `parseReps` for typed input.
 - `src/lib/dates.ts` — `dayKey` / `parseDayKey` (local-time `YYYY-MM-DD`).
 
-## Notes for the progressive overload piece
+## Progression formula (given by the user on 2026-11-13)
 
-In the user's own notes each set looks like `170lb•12 ⬆️(2)`. The arrow and the number in brackets mean they increased or decreased weight or reps. On 2026-11-13 they said to ignore the arrows and brackets for now; ask what exactly the number means before building it.
+In the user's words: lower body +2 reps for every exercise (+1 rep for split squat) every two weeks, after two weeks same reps and +2.5 lb (+5 lb for glute bridge); upper body +2 reps every two weeks, and after two weeks +2.5 lb and same reps.
+
+How it is built (`src/lib/progression.ts`, pure and testable; storage in `src/lib/progression-storage.ts`, key `progression-settings-v1`):
+
+- A session's level = weight and reps of its first set. The level starts on the first of the back-to-back sessions sharing it.
+- Once `periodWeeks` (2) weeks have passed since then, the suggestion takes one step, added to every set of the last session. Steps alternate: reps first, then weight, then reps… (the kind is the opposite of the step that led to the current level).
+- Before that, the suggestion is "same as last time" plus the date of the next step.
+- Step sizes come from the exercise's body part (lower/upper), with optional per-exercise overrides. Exercises without settings count as lower body. Weight steps are added in whatever unit the sets were logged in.
+- The arrows and bracketed numbers in the user's old notes (`170lb•12 ⬆️(2)`) marked these increases; showing them in the app has not been asked for.
 
 ## Look and feel
 

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { ProgressionHint } from '@/components/progression-hint';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { dayKey, parseDayKey } from '@/lib/dates';
+import { timeOnDay } from '@/lib/dates';
+import { exerciseKey } from '@/lib/exercises';
 import { parseReps, parseWeight } from '@/lib/numbers';
+import { suggestNext, type ProgressionSettings } from '@/lib/progression';
 import {
   addSets,
   loadUnit,
@@ -22,22 +25,16 @@ const MAX_SETS = 20;
 type SetInput = { weight: string; reps: string };
 const EMPTY_ROW: SetInput = { weight: '', reps: '' };
 
-/**
- * The date and time to store on a new set. For today (or no day given) that's right now.
- * For another day it's that day with the current clock time, so sets added one after
- * another stay in the order they were entered.
- */
-function timeFor(day: string | undefined): Date {
-  const now = new Date();
-  const date = day && day !== dayKey(now) ? parseDayKey(day) : null;
-  if (!date) return now;
-  date.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
-  return date;
-}
+/** How many matching exercise names to offer while typing. */
+const MAX_NAME_MATCHES = 4;
 
 type Props = {
-  /** The day to log the sets on, e.g. "2026-11-13". Leave out to log them for right now. */
-  day?: string;
+  /** The day to log the sets on, e.g. "2026-11-13". */
+  day: string;
+  /** Every saved set, used to look up earlier sessions of the exercise being typed. */
+  history: WorkoutSet[];
+  /** The progression formula's numbers. Suggestions are hidden until these have loaded. */
+  settings: ProgressionSettings | null;
   /** Called after the sets are saved, with the full updated list of sets. */
   onSaved: (sets: WorkoutSet[]) => void;
 };
@@ -46,10 +43,14 @@ type Props = {
  * The form for adding one exercise: its name, how many sets, and a Weight and Reps box
  * for every set, so each set can have its own numbers.
  *
+ * While an exercise name is being typed, earlier exercises with a matching name are
+ * offered to tap. Once the name matches an earlier exercise, a box suggests the weight
+ * and reps for this time, worked out from the progression formula.
+ *
  * Sets can be added all at once or one at a time as the workout goes on. The exercise
  * name and the rows stay until every set has been added; only then does the form clear.
  */
-export function AddSetForm({ day, onSaved }: Props) {
+export function AddSetForm({ day, history, settings, onSaved }: Props) {
   const theme = useTheme();
 
   const [exercise, setExercise] = useState('');
@@ -119,7 +120,7 @@ export function AddSetForm({ day, onSaved }: Props) {
     }
 
     // Each set is stamped a millisecond after the one before, so they keep their order.
-    const start = timeFor(day).getTime();
+    const start = timeOnDay(day).getTime();
     const newSets: WorkoutSet[] = values.map((value, i) => ({
       id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2)}`,
       exercise: name,
@@ -154,6 +155,39 @@ export function AddSetForm({ day, onSaved }: Props) {
       .catch(() => Alert.alert('Could not save', 'Please try again.'));
   }
 
+  // Names of earlier exercises that contain what has been typed so far, most recent first.
+  const typedKey = exerciseKey(exercise);
+  const knownNames = new Map<string, string>();
+  for (const set of history) {
+    const key = exerciseKey(set.exercise);
+    if (!knownNames.has(key)) knownNames.set(key, set.exercise.trim());
+  }
+  const nameMatches =
+    typedKey === '' || knownNames.has(typedKey) || savedCount > 0
+      ? []
+      : [...knownNames.entries()]
+          .filter(([key]) => key.includes(typedKey))
+          .slice(0, MAX_NAME_MATCHES)
+          .map(([, name]) => name);
+
+  // What the formula suggests for this exercise today. Hidden once sets are being added.
+  const suggestion =
+    settings && savedCount === 0 ? suggestNext(history, exercise, day, settings) : null;
+
+  /** Copies the suggested sets into the form's rows, ready to add or adjust. */
+  function fillFromSuggestion() {
+    if (!suggestion) return;
+    const count = Math.min(MAX_SETS, suggestion.nextSets.length);
+    setSetCount(count);
+    setRows(
+      suggestion.nextSets
+        .slice(0, count)
+        .map((set) => ({ weight: String(set.weight), reps: String(set.reps) })),
+    );
+    const suggestedUnit = suggestion.nextSets[0].unit;
+    if (suggestedUnit) chooseUnit(suggestedUnit);
+  }
+
   // While some sets are already added, the count can't go below the next set to fill in.
   const minSets = savedCount + 1;
   const setNumbers = Array.from({ length: setCount }, (_, i) => i);
@@ -173,8 +207,30 @@ export function AddSetForm({ day, onSaved }: Props) {
         value={exercise}
         onChangeText={setExercise}
         autoCapitalize="sentences"
+        autoCorrect={false}
         returnKeyType="done"
       />
+
+      {nameMatches.length > 0 && (
+        <View style={styles.matches}>
+          {nameMatches.map((name) => (
+            <Pressable
+              key={name}
+              onPress={() => setExercise(name)}
+              accessibilityRole="button"
+              accessibilityLabel={`Use exercise name ${name}`}
+              style={({ pressed }) => [
+                styles.match,
+                { backgroundColor: theme.backgroundElement },
+                pressed && styles.disabled,
+              ]}>
+              <ThemedText type="small">{name}</ThemedText>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {suggestion && <ProgressionHint suggestion={suggestion} onUse={fillFromSuggestion} />}
 
       <View style={styles.row}>
         <View style={[styles.stepper, { backgroundColor: theme.backgroundElement }]}>
@@ -287,6 +343,16 @@ export function AddSetForm({ day, onSaved }: Props) {
 const styles = StyleSheet.create({
   form: {
     gap: Spacing.two,
+  },
+  matches: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  match: {
+    paddingHorizontal: 10,
+    paddingVertical: Spacing.one,
+    borderRadius: 8,
   },
   row: {
     flexDirection: 'row',

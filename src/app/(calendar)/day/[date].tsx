@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Stack } from 'expo-router/stack';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,29 +14,40 @@ import {
 import { AddSetForm } from '@/components/add-set-form';
 import { ExerciseCard } from '@/components/exercise-card';
 import { ThemedText } from '@/components/themed-text';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, StopwatchBarSpace, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAutosave } from '@/hooks/use-autosave';
 import { useTheme } from '@/hooks/use-theme';
-import { dayKey, parseDayKey } from '@/lib/dates';
-import { groupByExercise, type ExerciseGroup } from '@/lib/exercises';
+import { dayKey, parseDayKey, timeOnDay } from '@/lib/dates';
+import { exerciseKey, groupByExercise, type ExerciseGroup } from '@/lib/exercises';
+import { type ProgressionSettings } from '@/lib/progression';
+import { loadProgressionSettings } from '@/lib/progression-storage';
 import {
   addSets,
+  copyWorkout,
   deleteExerciseNotesOnDay,
   deleteSet,
   deleteSets,
   deleteSetsOnDay,
-  exerciseKey,
   loadExerciseNotes,
+  loadCopiedWorkout,
   loadSets,
   loadWorkoutName,
   saveExerciseNote,
+  pasteWorkout,
   saveWorkoutName,
   type SetChanges,
+  type CopiedWorkout,
   updateSet,
   type WorkoutSet,
 } from '@/lib/sets-storage';
 
 const DELETE_COLOR = '#E5484D';
+
+/** "Nov 12" for "2026-11-12". */
+function formatShortDay(day: string): string {
+  const parsed = parseDayKey(day);
+  return parsed ? parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : day;
+}
 
 /** The page for one day, opened by tapping a date in the calendar. */
 export default function DayScreen() {
@@ -53,6 +64,24 @@ export default function DayScreen() {
   // Whether the add-exercise form is showing. `null` means the user hasn't chosen yet:
   // then it shows only while the day is still empty, to leave room for the workout.
   const [formChoice, setFormChoice] = useState<boolean | null>(null);
+
+  // The progression formula's numbers. Re-read whenever this page comes back into view,
+  // in case they were changed on the Settings tab.
+  const [settings, setSettings] = useState<ProgressionSettings | null>(null);
+  // The workout that was last copied (on any day), waiting to be pasted. Also re-read
+  // whenever this page comes back into view.
+  const [copied, setCopied] = useState<CopiedWorkout | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      loadProgressionSettings()
+        .then(setSettings)
+        .catch(() => {});
+      loadCopiedWorkout()
+        .then(setCopied)
+        .catch(() => {});
+      // `setCopied` never changes; it is listed only because the code checker asks for it.
+    }, [setCopied]),
+  );
 
   const nameAutosave = useAutosave((name: string) => {
     saveWorkoutName(date, name).catch(() =>
@@ -163,6 +192,42 @@ export default function DayScreen() {
     );
   }
 
+  function copyThisWorkout() {
+    copyWorkout(date)
+      .then((workout) => {
+        setCopied(workout);
+        Alert.alert('Workout copied', 'Open another date and tap Paste to add it there.');
+      })
+      .catch(() => Alert.alert('Could not copy the workout', 'Please try again.'));
+  }
+
+  // Pasting asks first, and adds to whatever is already on this day.
+  function confirmPasteWorkout(workout: CopiedWorkout) {
+    const count = workout.sets.length;
+    Alert.alert(
+      'Paste workout here?',
+      `This adds ${count === 1 ? '1 set' : `${count} sets`} from ${formatShortDay(workout.fromDay)} to ${title}.${
+        daySets.length > 0 ? ' The sets already on this day stay.' : ''
+      }`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Paste',
+          onPress: () =>
+            pasteWorkout(workout, timeOnDay(date))
+              .then(setSets)
+              .then(() => {
+                // Bring the workout's name along if this day doesn't have one yet.
+                if (workoutName.trim() !== '' || workout.name.trim() === '') return;
+                setWorkoutName(workout.name);
+                return saveWorkoutName(date, workout.name);
+              })
+              .catch(() => Alert.alert('Could not paste the workout', 'Please try again.')),
+        },
+      ],
+    );
+  }
+
   function confirmDeleteWorkout() {
     const count = daySets.length;
     Alert.alert(
@@ -232,9 +297,32 @@ export default function DayScreen() {
                 <ThemedText type="smallBold">{formOpen ? 'Hide form' : '+ Exercise'}</ThemedText>
               </Pressable>
             </View>
+            {/* Offered on every day except the one the workout was copied from. */}
+            {copied && copied.fromDay !== date && copied.sets.length > 0 && (
+              <View style={[styles.pasteBar, { backgroundColor: theme.accentSoft }]}>
+                <ThemedText type="small" style={styles.pasteText}>
+                  Copied: {copied.name.trim() !== '' ? `${copied.name.trim()}, ` : ''}
+                  {formatShortDay(copied.fromDay)}
+                </ThemedText>
+                <Pressable
+                  onPress={() => confirmPasteWorkout(copied)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Paste the copied workout onto this day"
+                  style={({ pressed }) => [
+                    styles.pasteButton,
+                    { backgroundColor: theme.accent },
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText type="smallBold" style={{ color: theme.background }}>
+                    Paste
+                  </ThemedText>
+                </Pressable>
+              </View>
+            )}
             {/* The form is hidden rather than removed, so a half-entered exercise is kept. */}
             <View style={!formOpen && styles.hidden}>
-              <AddSetForm day={date} onSaved={setSets} />
+              <AddSetForm day={date} history={sets} settings={settings} onSaved={setSets} />
             </View>
           </View>
         }
@@ -255,14 +343,24 @@ export default function DayScreen() {
         )}
         ListFooterComponent={
           daySets.length > 0 ? (
-            <Pressable
-              onPress={confirmDeleteWorkout}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.deleteWorkout, pressed && styles.pressed]}>
-              <ThemedText type="smallBold" style={{ color: DELETE_COLOR }}>
-                Delete workout
-              </ThemedText>
-            </Pressable>
+            <View style={styles.footer}>
+              <Pressable
+                onPress={copyThisWorkout}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.footerButton, pressed && styles.pressed]}>
+                <ThemedText type="smallBold" style={{ color: theme.accent }}>
+                  Copy workout
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={confirmDeleteWorkout}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.footerButton, pressed && styles.pressed]}>
+                <ThemedText type="smallBold" style={{ color: DELETE_COLOR }}>
+                  Delete workout
+                </ThemedText>
+              </Pressable>
+            </View>
           ) : undefined
         }
         ListEmptyComponent={
@@ -285,7 +383,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + Spacing.three,
+    paddingBottom: BottomTabInset + StopwatchBarSpace + Spacing.three,
     gap: 6,
   },
   header: {
@@ -313,10 +411,31 @@ const styles = StyleSheet.create({
   hidden: {
     display: 'none',
   },
-  deleteWorkout: {
-    alignItems: 'center',
-    paddingVertical: 10,
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginTop: Spacing.two,
+  },
+  footerButton: {
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.three,
+  },
+  pasteBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  pasteText: {
+    flex: 1,
+  },
+  pasteButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   pressed: {
     opacity: 0.5,

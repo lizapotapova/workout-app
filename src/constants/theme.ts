@@ -70,5 +70,7 @@ export const Spacing = {
   six: 64,
 } as const;
 
+/** Room left at the bottom of scrolling pages for the floating stopwatch bar. */
+export const StopwatchBarSpace = 56;
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

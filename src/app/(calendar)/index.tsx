@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WorkoutSummary } from '@/components/workout-summary';
-import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, StopwatchBarSpace, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey } from '@/lib/dates';
 import { groupByExercise } from '@/lib/exercises';
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + Spacing.two,
+    paddingBottom: BottomTabInset + StopwatchBarSpace + Spacing.two,
     gap: Spacing.three,
   },
   monthHeader: {

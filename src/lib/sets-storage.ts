@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { dayKey } from '@/lib/dates';
+import { exerciseKey } from '@/lib/exercises';
 
 export type WeightUnit = 'kg' | 'lb';
 
@@ -134,11 +135,6 @@ export function saveWorkoutName(day: string, name: string): Promise<void> {
 
 const EXERCISE_NOTES_KEY = 'exercise-notes-v1';
 
-/** The name used to match an exercise, so "squat" and "Squat " count as the same. */
-export function exerciseKey(name: string): string {
-  return name.trim().toLowerCase();
-}
-
 /** All saved exercise notes, as { "2026-11-13|squat": "felt easy", ... }. */
 async function readExerciseNotes(): Promise<Record<string, string>> {
   const raw = await AsyncStorage.getItem(EXERCISE_NOTES_KEY);
@@ -185,4 +181,54 @@ export function deleteExerciseNotesOnDay(day: string): Promise<void> {
       if (key.startsWith(`${day}|`)) delete notes[key];
     }
   });
+}
+
+// ---- Copy and paste a whole workout from one day to another ----
+
+const COPIED_KEY = 'copied-workout-v1';
+
+/** A workout that was copied and is waiting to be pasted onto another day. */
+export type CopiedWorkout = {
+  /** The day it was copied from, e.g. "2026-11-13". */
+  fromDay: string;
+  /** The workout's name ('' if it had none). */
+  name: string;
+  /** Its sets in the order they were done. Notes are not copied. */
+  sets: Pick<WorkoutSet, 'exercise' | 'weight' | 'unit' | 'reps'>[];
+};
+
+/** Reads the copied workout, or null if nothing has been copied. */
+export async function loadCopiedWorkout(): Promise<CopiedWorkout | null> {
+  const raw = await AsyncStorage.getItem(COPIED_KEY);
+  return raw ? (JSON.parse(raw) as CopiedWorkout) : null;
+}
+
+/** Copies one day's workout (exercises, sets and name), replacing any earlier copy. */
+export async function copyWorkout(day: string): Promise<CopiedWorkout> {
+  const daySets = (await loadSets())
+    .filter((set) => dayKey(new Date(set.createdAt)) === day)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const copied: CopiedWorkout = {
+    fromDay: day,
+    name: await loadWorkoutName(day),
+    sets: daySets.map(({ exercise, weight, unit, reps }) => ({ exercise, weight, unit, reps })),
+  };
+  await AsyncStorage.setItem(COPIED_KEY, JSON.stringify(copied));
+  return copied;
+}
+
+/**
+ * Adds the copied workout's sets to `day`, starting at the time `start`, and returns the
+ * full updated list of sets. Sets already on that day are kept.
+ */
+export function pasteWorkout(copied: CopiedWorkout, start: Date): Promise<WorkoutSet[]> {
+  const startTime = start.getTime();
+  return addSets(
+    copied.sets.map((set, i) => ({
+      ...set,
+      id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2)}`,
+      // Each set is stamped a millisecond after the one before, so they keep their order.
+      createdAt: new Date(startTime + i).toISOString(),
+    })),
+  );
 }
