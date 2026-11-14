@@ -53,7 +53,7 @@ The user logs in the gym, one-handed, between sets: logging a set should take as
 
 - [x] 1. Today's workout is the first tab; Calendar is the second tab, for history (its "today's workout" summary was removed).
 - [x] 2. Exercise picker in `add-set-form.tsx`: stage 1 shows a search box and up to 8 recent exercises as chips plus an "+ Add “…”" chip; stage 2 (after picking) shows the name with "Change" and the set rows.
-- [ ] 3. On picking: pre-fill weight/reps from the last session (the user's wording; the "Suggested" box with "Use" stays), show "Last time: weight × reps", + and − buttons (reps ±1, weight ± the Settings step).
+- [x] 3. Picking an exercise pre-fills every set row from its last session (the user's wording, not the suggestion) and shows "Last time, Nov 12: 170 lb × 12, 3 sets". Each weight/reps box has − and + (reps ±1, weight ± the exercise's step from Settings). Changing a box also changes the rows below that had the same number. The main button adds one set per tap ("Add set 2"); "Add all N sets" is a small link. The blue "Suggested … Use" box shows only when a step is due; otherwise one grey line says when the next step comes. The user then reported seeing no +/− and no "Last time" (cause not confirmed; my guess is they edit pasted/existing sets on the cards), so the exercise cards got both too: a "Last time, …" line under the title and −/+ in the set editor.
 - [ ] 4. One card per exercise with numbered sets (exists; make it faster one-handed).
 - [ ] 5. Move kg/lb into Settings.
 - [ ] 6. One accent colour for the primary button, today's date, workout days (extend cobalt to the day page).

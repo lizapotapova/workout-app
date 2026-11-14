@@ -36,24 +36,29 @@ type Props = {
   onUse: () => void;
 };
 
-/** The box under the exercise name that says what to do this time, based on earlier sessions. */
+/** The box under the exercise name that offers a step up when the formula says it is time. */
 export function ProgressionHint({ suggestion, onUse }: Props) {
   const theme = useTheme();
   const unit = suggestion.lastSets[0].unit;
 
-  const reason =
-    suggestion.change === 'none'
-      ? suggestion.upcoming
-        ? `Same as last time. ${formatStep(suggestion.upcoming.change, suggestion.upcoming.amount, unit)} from ${formatDay(suggestion.upcoming.day)}.`
-        : 'Same as last time.'
-      : `${formatStep(suggestion.change, suggestion.amount, unit)} on last time.`;
+  // Not time for a step yet: the form already starts with last time's numbers, so one
+  // line about when the next step comes is enough.
+  if (suggestion.change === 'none') {
+    if (!suggestion.upcoming) return null;
+    return (
+      <ThemedText style={styles.detail} themeColor="textSecondary">
+        Next step: {formatStep(suggestion.upcoming.change, suggestion.upcoming.amount, unit)} from{' '}
+        {formatDay(suggestion.upcoming.day)}.
+      </ThemedText>
+    );
+  }
 
   return (
     <View style={[styles.box, { backgroundColor: theme.accentSoft }]}>
       <View style={styles.text}>
         <ThemedText type="smallBold">Suggested: {formatSets(suggestion.nextSets)}</ThemedText>
         <ThemedText style={styles.detail} themeColor="textSecondary">
-          {reason} Last time, {formatDay(suggestion.lastDay)}: {formatSets(suggestion.lastSets)}.
+          {formatStep(suggestion.change, suggestion.amount, unit)} on last time.
         </ThemedText>
       </View>
       <Pressable

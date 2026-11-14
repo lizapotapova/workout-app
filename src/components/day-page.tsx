@@ -19,7 +19,13 @@ import { useAutosave } from '@/hooks/use-autosave';
 import { useTheme } from '@/hooks/use-theme';
 import { dayKey, parseDayKey, timeOnDay } from '@/lib/dates';
 import { exerciseKey, groupByExercise, type ExerciseGroup } from '@/lib/exercises';
-import { type ProgressionSettings } from '@/lib/progression';
+import {
+  DEFAULT_SETTINGS,
+  formatLastTime,
+  stepsFor,
+  suggestNext,
+  type ProgressionSettings,
+} from '@/lib/progression';
 import { loadProgressionSettings } from '@/lib/progression-storage';
 import {
   addSets,
@@ -132,6 +138,13 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
   const daySets = sets.filter((set) => dayKey(new Date(set.createdAt)) === date);
   const exercises = groupByExercise(daySets);
   const formOpen = formChoice ?? (loaded && daySets.length === 0);
+
+  // What was done the last time before this day, shown on each exercise's card.
+  const formula = settings ?? DEFAULT_SETTINGS;
+  function lastTimeOf(exercise: string): string | undefined {
+    const last = suggestNext(sets, exercise, date, formula);
+    return last ? formatLastTime(last.lastDay, last.lastSets) : undefined;
+  }
 
   function saveSetChanges(set: WorkoutSet, changes: SetChanges) {
     updateSet(set.id, changes)
@@ -341,6 +354,8 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
         renderItem={({ item, index }) => (
           <ExerciseCard
             number={index + 1}
+            lastTime={lastTimeOf(item.name)}
+            weightStep={stepsFor(formula, item.name).weight}
             name={item.name}
             sets={item.sets}
             note={exerciseNotes[exerciseKey(item.name)] ?? ''}

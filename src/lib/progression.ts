@@ -1,4 +1,4 @@
-import { addDays, dayKey } from '@/lib/dates';
+import { addDays, dayKey, parseDayKey } from '@/lib/dates';
 import { exerciseKey } from '@/lib/exercises';
 import { type WeightUnit, type WorkoutSet } from '@/lib/sets-storage';
 
@@ -53,6 +53,22 @@ export function stepsFor(settings: ProgressionSettings, exercise: string): Steps
 }
 
 export type SuggestedSet = { weight: number; reps: number; unit?: WeightUnit };
+
+/** "Nov 12: 170 lb × 12, 3 sets" when every set was the same, otherwise each set listed. */
+export function formatLastTime(day: string, sets: SuggestedSet[]): string {
+  const date = parseDayKey(day);
+  const when = date
+    ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : day;
+  const one = (set: SuggestedSet) => `${set.weight}${set.unit ? ` ${set.unit}` : ''} × ${set.reps}`;
+  const first = one(sets[0]);
+  const what = sets.every((set) => one(set) === first)
+    ? sets.length === 1
+      ? first
+      : `${first}, ${sets.length} sets`
+    : sets.map(one).join(' / ');
+  return `${when}: ${what}`;
+}
 
 export type Suggestion = {
   /** The most recent earlier day this exercise was done, and what was done. */
