@@ -45,7 +45,7 @@ A workout log:
 
 A "workout" currently means all the sets logged on one day; there is no separate workout record yet.
 
-Weight unit: a kg/lb toggle sits next to the weight box. Each set stores the unit it was entered in (no conversion); the last chosen unit is remembered (key `weight-unit-v1`). Sets logged before this have no unit.
+Weight unit: chosen in Settings. Each set stores the unit it was entered in (no conversion); the last chosen unit is remembered (key `weight-unit-v1`). Sets logged before this have no unit.
 
 ## UI/UX overhaul (user's 7-step list, 2026-11-13)
 
@@ -53,9 +53,9 @@ The user logs in the gym, one-handed, between sets: logging a set should take as
 
 - [x] 1. Today's workout is the first tab; Calendar is the second tab, for history (its "today's workout" summary was removed).
 - [x] 2. Exercise picker in `add-set-form.tsx`: stage 1 shows a search box and up to 8 recent exercises as chips plus an "+ Add “…”" chip; stage 2 (after picking) shows the name with "Change" and the set rows.
-- [x] 3. Picking an exercise pre-fills every set row from its last session (the user's wording, not the suggestion) and shows "Last time, Nov 12: 170 lb × 12, 3 sets". Each weight/reps box has − and + (reps ±1, weight ± the exercise's step from Settings). Changing a box also changes the rows below that had the same number. The main button adds one set per tap ("Add set 2"); "Add all N sets" is a small link. The blue "Suggested … Use" box shows only when a step is due; otherwise one grey line says when the next step comes. The user then reported seeing no +/− and no "Last time" (cause not confirmed; my guess is they edit pasted/existing sets on the cards), so the exercise cards got both too: a "Last time, …" line under the title and −/+ in the set editor.
+- [x] 3. Picking an exercise pre-fills every set row from its last session (the user's wording, not the suggestion) and shows "Last time, Nov 12: 170 lb × 12, 3 sets". Each weight/reps box has − and + (reps ±1, weight ± the exercise's step from Settings). Changing a box changes only that set (the user did not want the rows below to follow, 2026-11-13). The main button adds one set per tap ("Add set 2"); "Add all N sets" is a small link. The blue "Suggested … Use" box shows only when a step is due; otherwise one grey line says when the next step comes. The user then reported seeing no +/− and no "Last time" (cause not confirmed; my guess is they edit pasted/existing sets on the cards), so the exercise cards got both too: a "Last time, …" line under the title and −/+ in the set editor.
 - [x] 4. One card per exercise with numbered sets (already existed). Made thumb-friendly: set cells 30 tall (36 was "a little bit too much to scroll" for the user; 26 was the original) with bolder numbers, "+ Set" a real pill button, larger ✕ target. Kept slim because the user earlier asked for a compact page.
-- [ ] 5. Move kg/lb into Settings.
+- [x] 5. kg/lb moved to Settings ("Weight unit" card at the top; the toggle is gone from the add form). The user chose "convert everything" (2026-11-13): the day page converts every set to the Settings unit for display with `inUnit` (170 lb shows as 77.1 kg, one decimal); saved sets keep their original unit and number unless their weight is edited. New sets are saved in the Settings unit. Progression runs on the converted sets; step sizes in Settings are plain numbers applied in the current unit.
 - [ ] 6. One accent colour for the primary button, today's date, workout days (extend cobalt to the day page).
 - [ ] 7. `expo-haptics` on set saved; Undo bar after deleting instead of confirmation pop-ups (proposed in the plan; the user said "go ahead" without comment).
 

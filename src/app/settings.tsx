@@ -18,9 +18,10 @@ import {
   type Steps,
 } from '@/lib/progression';
 import { loadProgressionSettings, saveProgressionSettings } from '@/lib/progression-storage';
-import { loadSets } from '@/lib/sets-storage';
+import { loadSets, loadUnit, saveUnit, type WeightUnit } from '@/lib/sets-storage';
 
 const WARNING_COLOR = '#E5484D';
+const UNITS: WeightUnit[] = ['kg', 'lb'];
 const BODY_PARTS: { value: BodyPart; label: string }[] = [
   { value: 'lower', label: 'Lower' },
   { value: 'upper', label: 'Upper' },
@@ -87,6 +88,12 @@ export default function SettingsScreen() {
   // Names of the exercises that have been logged, to list alongside the ones with settings.
   const [loggedNames, setLoggedNames] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
+  const [unit, setUnit] = useState<WeightUnit>('kg');
+
+  function chooseUnit(next: WeightUnit) {
+    setUnit(next);
+    saveUnit(next).catch(() => Alert.alert('Could not save the weight unit', 'Please try again.'));
+  }
 
   const autosave = useAutosave((next: ProgressionSettings) => {
     saveProgressionSettings(next).catch(() =>
@@ -102,6 +109,9 @@ export default function SettingsScreen() {
         .catch(() => Alert.alert('Could not load the settings'));
       loadSets()
         .then((sets) => setLoggedNames(sets.map((set) => set.exercise.trim())))
+        .catch(() => {});
+      loadUnit()
+        .then(setUnit)
         .catch(() => {});
     }, []),
   );
@@ -148,7 +158,39 @@ export default function SettingsScreen() {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets>
-          <ThemedText style={styles.heading}>Progression</ThemedText>
+          <ThemedText style={styles.heading}>Settings</ThemedText>
+
+          <ThemedView type="backgroundElement" style={styles.card}>
+            <View style={styles.row}>
+              <ThemedText style={styles.rowLabel}>Weight unit</ThemedText>
+              <View style={[styles.toggle, { backgroundColor: theme.background }]}>
+                {UNITS.map((option) => {
+                  const selected = option === unit;
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => chooseUnit(option)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`Weight unit: ${option}`}
+                      style={[styles.toggleOption, selected && { backgroundColor: theme.accent }]}>
+                      <ThemedText
+                        type="small"
+                        style={{ color: selected ? theme.background : theme.textSecondary }}>
+                        {option}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <ThemedText type="small" themeColor="textSecondary">
+              Every weight is shown in this unit. Sets logged in the other unit are converted,
+              for example 170 lb shows as 77.1 kg, and switching back shows 170 lb again.
+            </ThemedText>
+          </ThemedView>
+
+          <ThemedText style={styles.subheading}>Progression</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             After staying at the same weight and reps for the number of weeks below, an exercise
             takes one step up. Steps take turns: first more reps, then more weight, then more reps
@@ -318,6 +360,13 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 36,
     fontWeight: 700,
+  },
+  subheading: {
+    fontFamily: Fonts?.rounded,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: 700,
+    marginTop: Spacing.two,
   },
   sectionText: {
     gap: Spacing.half,

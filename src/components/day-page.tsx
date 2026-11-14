@@ -36,7 +36,9 @@ import {
   deleteSetsOnDay,
   loadExerciseNotes,
   loadCopiedWorkout,
+  inUnit,
   loadSets,
+  loadUnit,
   loadWorkoutName,
   saveExerciseNote,
   pasteWorkout,
@@ -44,6 +46,7 @@ import {
   type SetChanges,
   type CopiedWorkout,
   updateSet,
+  type WeightUnit,
   type WorkoutSet,
 } from '@/lib/sets-storage';
 
@@ -70,7 +73,8 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
   const day = parseDayKey(date);
   const theme = useTheme();
 
-  const [sets, setSets] = useState<WorkoutSet[]>([]);
+  // The sets exactly as they are saved on the phone, each in the unit it was logged in.
+  const [savedSets, setSets] = useState<WorkoutSet[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   // The general note of each exercise on this day, e.g. { squat: "felt easy" }.
@@ -85,6 +89,11 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
   // The workout that was last copied (on any day), waiting to be pasted. Also re-read
   // whenever this page comes back into view.
   const [copied, setCopied] = useState<CopiedWorkout | null>(null);
+  // The weight unit chosen in Settings (`null` until it has been read).
+  const [unit, setUnit] = useState<WeightUnit | null>(null);
+  // Everything on this page works with the sets converted to that unit, so a set logged
+  // as 170 lb shows as 77.1 kg after switching to kg.
+  const sets = unit ? savedSets.map((set) => inUnit(set, unit)) : savedSets;
   useFocusEffect(
     useCallback(() => {
       loadProgressionSettings()
@@ -93,8 +102,11 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
       loadCopiedWorkout()
         .then(setCopied)
         .catch(() => {});
-      // `setCopied` never changes; it is listed only because the code checker asks for it.
-    }, [setCopied]),
+      loadUnit()
+        .then(setUnit)
+        .catch(() => {});
+      // The `set…` functions never change; they are listed because the code checker asks.
+    }, [setCopied, setUnit]),
   );
 
   const nameAutosave = useAutosave((name: string) => {
@@ -147,7 +159,12 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
   }
 
   function saveSetChanges(set: WorkoutSet, changes: SetChanges) {
-    updateSet(set.id, changes)
+    const next = { ...changes };
+    // `set` is in the unit shown on screen. An untouched weight is left as it was saved;
+    // a changed weight is saved together with the unit it was typed in.
+    if (next.weight === set.weight) delete next.weight;
+    else if (next.weight !== undefined) next.unit = set.unit;
+    updateSet(set.id, next)
       .then(setSets)
       .catch(() => Alert.alert('Could not save the change', 'Please try again.'));
   }
@@ -346,7 +363,13 @@ export function DayPage({ date, titlePrefix }: DayPageProps) {
             )}
             {/* The form is hidden rather than removed, so a half-entered exercise is kept. */}
             <View style={!formOpen && styles.hidden}>
-              <AddSetForm day={date} history={sets} settings={settings} onSaved={setSets} />
+              <AddSetForm
+                day={date}
+                history={sets}
+                unit={unit ?? 'kg'}
+                settings={settings}
+                onSaved={setSets}
+              />
             </View>
           </View>
         }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ProgressionHint } from '@/components/progression-hint';
@@ -15,15 +15,8 @@ import {
   suggestNext,
   type ProgressionSettings,
 } from '@/lib/progression';
-import {
-  addSets,
-  loadUnit,
-  saveUnit,
-  type WeightUnit,
-  type WorkoutSet,
-} from '@/lib/sets-storage';
+import { addSets, type WeightUnit, type WorkoutSet } from '@/lib/sets-storage';
 
-const UNITS: WeightUnit[] = ['kg', 'lb'];
 /** The most sets one exercise can have in the form. */
 const MAX_SETS = 20;
 
@@ -39,6 +32,8 @@ type Props = {
   day: string;
   /** Every saved set, used to look up earlier sessions of the exercise being typed. */
   history: WorkoutSet[];
+  /** The weight unit chosen in Settings. `history` is already converted to it. */
+  unit: WeightUnit;
   /** The progression formula's numbers. Suggestions are hidden until these have loaded. */
   settings: ProgressionSettings | null;
   /** Called after the sets are saved, with the full updated list of sets. */
@@ -59,7 +54,7 @@ type Props = {
  * smaller link adds all the remaining sets at once. The exercise name and the rows stay
  * until every set has been added; only then does the form clear.
  */
-export function AddSetForm({ day, history, settings, onSaved }: Props) {
+export function AddSetForm({ day, history, unit, settings, onSaved }: Props) {
   const theme = useTheme();
 
   // The exercise that was picked. Empty while the picker is showing.
@@ -71,32 +66,11 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
   const [rows, setRows] = useState<SetInput[]>([]);
   // How many of this exercise's sets have already been added. They show a ✓ and are locked.
   const [savedCount, setSavedCount] = useState(0);
-  const [unit, setUnit] = useState<WeightUnit>('kg');
 
-  // Start with the unit chosen last time.
-  useEffect(() => {
-    loadUnit()
-      .then(setUnit)
-      .catch(() => {});
-  }, []);
-
-  function chooseUnit(next: WeightUnit) {
-    setUnit(next);
-    // Remember the choice for next time. Not critical if this fails.
-    saveUnit(next).catch(() => {});
-  }
-
-  /**
-   * Changes one box. The sets below that had the same number change with it, because
-   * sets of one exercise are usually the same; a set that was different is left alone.
-   */
+  /** Changes one box of one set. The other sets are left alone. */
   function changeRow(index: number, field: keyof SetInput, text: string) {
     const next = Array.from({ length: setCount }, (_, i) => rows[i] ?? EMPTY_ROW);
-    const before = next[index][field];
     next[index] = { ...next[index], [field]: text };
-    for (let i = index + 1; i < setCount; i++) {
-      if (next[i][field] === before) next[i] = { ...next[i], [field]: text };
-    }
     setRows(next);
   }
 
@@ -120,7 +94,7 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
     setSetCount(count);
   }
 
-  /** Empties the form, ready for the next exercise. The number of sets and the unit stay. */
+  /** Empties the form, ready for the next exercise. The number of sets stays. */
   function startNextExercise() {
     setExercise('');
     setSearch('');
@@ -224,7 +198,6 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
     const count = Math.min(MAX_SETS, last.length);
     setSetCount(count);
     setRows(last.slice(0, count).map((set) => ({ weight: String(set.weight), reps: String(set.reps) })));
-    if (last[0].unit) setUnit(last[0].unit);
   }
 
   /** The keyboard's Done key: picks the exercise with that exact name, or adds it as new. */
@@ -246,8 +219,6 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
         .slice(0, count)
         .map((set) => ({ weight: String(set.weight), reps: String(set.reps) })),
     );
-    const suggestedUnit = suggestion.nextSets[0].unit;
-    if (suggestedUnit) chooseUnit(suggestedUnit);
   }
 
   // While some sets are already added, the count can't go below the next set to fill in.
@@ -389,28 +360,6 @@ export function AddSetForm({ day, history, settings, onSaved }: Props) {
             style={[stepperButtonStyle, setCount >= MAX_SETS && styles.disabled]}>
             <ThemedText type="smallBold">+</ThemedText>
           </Pressable>
-        </View>
-
-        <View style={styles.spacer} />
-
-        <View style={[styles.unitToggle, { backgroundColor: theme.backgroundElement }]}>
-          {UNITS.map((option) => {
-            const selected = option === unit;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => chooseUnit(option)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                style={[styles.unitOption, selected && { backgroundColor: theme.text }]}>
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: selected ? theme.background : theme.textSecondary }}>
-                  {option}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
         </View>
       </View>
 
@@ -582,9 +531,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     padding: 0,
   },
-  spacer: {
-    flex: 1,
-  },
   setLabel: {
     width: 20,
     textAlign: 'center',
@@ -623,18 +569,6 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
-  },
-  unitToggle: {
-    flexDirection: 'row',
-    alignSelf: 'stretch',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  unitOption: {
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 8,
   },
   input: {
     fontSize: 16,

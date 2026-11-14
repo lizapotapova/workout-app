@@ -33,6 +33,19 @@ export async function saveUnit(unit: WeightUnit): Promise<void> {
   await AsyncStorage.setItem(UNIT_KEY, unit);
 }
 
+const KG_PER_LB = 0.45359237;
+
+/**
+ * The same set with its weight shown in `unit`, e.g. 170 lb becomes 77.1 kg. Converted
+ * weights are rounded to one decimal. What is saved on the phone is not changed, so
+ * switching back shows the original number again. Old sets with no unit are left as is.
+ */
+export function inUnit(set: WorkoutSet, unit: WeightUnit): WorkoutSet {
+  if (!set.unit || set.unit === unit) return set;
+  const weight = unit === 'kg' ? set.weight * KG_PER_LB : set.weight / KG_PER_LB;
+  return { ...set, weight: Math.round(weight * 10) / 10, unit };
+}
+
 /** Reads all saved sets from the phone. Returns an empty list if nothing is saved yet. */
 async function readSets(): Promise<WorkoutSet[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
@@ -94,7 +107,7 @@ export function deleteSetsOnDay(day: string): Promise<WorkoutSet[]> {
 }
 
 /** The parts of a set that can be edited after it was added. */
-export type SetChanges = Partial<Pick<WorkoutSet, 'weight' | 'reps' | 'note'>>;
+export type SetChanges = Partial<Pick<WorkoutSet, 'weight' | 'unit' | 'reps' | 'note'>>;
 
 /** Changes one set (its weight, reps and/or note) and returns the full updated list. */
 export function updateSet(id: string, changes: SetChanges): Promise<WorkoutSet[]> {
