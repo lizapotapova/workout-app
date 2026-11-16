@@ -33,15 +33,6 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="stopwatch">
-        <NativeTabs.Trigger.Label>Stopwatch</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          sf="stopwatch"
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

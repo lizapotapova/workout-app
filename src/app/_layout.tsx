@@ -8,9 +8,9 @@ import { StopwatchBar } from '@/components/stopwatch-bar';
 
 SplashScreen.preventAutoHideAsync();
 
-// The app is always dark, whatever the phone is set to. This also makes the keyboard,
-// the tab bar and the title bars dark.
-Appearance.setColorScheme?.('dark');
+// The app is always light ("Sand"), whatever the phone is set to. This also keeps the
+// keyboard, the tab bar and the title bars light.
+Appearance.setColorScheme?.('light');
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

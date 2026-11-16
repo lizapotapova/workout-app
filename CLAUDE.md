@@ -41,6 +41,7 @@ A workout log:
 - [x] Notes: a notes box on each set on the day page, saved automatically (shortly after typing stops, on blur, and when the page closes). The user asked for notes per set, not per workout.
 - [x] Copy and paste a whole workout between days: "Copy workout" at the bottom of a day, then a "Paste" bar at the top of other days (key `copied-workout-v1`). Copies exercises, sets and the name, not notes; pasting adds to the day.
 - [x] Stopwatch tab: start, stop, lap, reset (`src/app/stopwatch.tsx`, logic in `src/lib/stopwatch.ts`, key `stopwatch-v1`). It stores the clock time of the Start press instead of counting, so it keeps running across tabs and while the app is closed.
+- [x] 2026-11-15: the user did not want a whole Stopwatch page; the tab and `src/app/stopwatch.tsx` were removed and only the floating bar remains (it shows the latest lap next to the time). Tabs are Today, Calendar, Settings.
 - [x] Floating stopwatch bar on every screen: `src/components/stopwatch-bar.tsx`, drawn in the root layout above the tab bar. Always shown, also at zero (on 2026-11-13 the user said it must not disappear after Reset); hidden only on the Stopwatch tab. Scrolling pages add `StopwatchBarSpace` to their bottom padding so it never covers the last row.
 
 A "workout" currently means all the sets logged on one day; there is no separate workout record yet.
@@ -100,13 +101,14 @@ How the suggestion is worked out:
 
 ## Look and feel
 
-On 2026-11-13 the user sent a mockup (`~/Desktop/workt.jpg`) and asked for the design to look more like it. It is being done in pieces:
+On 2026-11-15 the user sent a second mockup, "Sand" (`~/Desktop/Untitled 3.jpg`), replacing the dark lime one from 2026-11-13, and said: "just the design. the rest stays the same" — so only the look changes, no features are added or removed to match the mockup (it shows a Stopwatch tab, week strip, export/import; those are NOT requested).
 
-- [x] A. Colours: the app is always dark (`Appearance.setColorScheme('dark')` in the root layout, `userInterfaceStyle: "dark"` in app.json) with near-black pages, lighter cards and one lime accent (`Colors.dark` in `src/constants/theme.ts`). Text on lime is dark. Red stays for delete.
-- [ ] B. Today header: small date above a big "Today" title, Settings as an icon at the top right, and only three tabs (Today, Calendar, Stopwatch).
-- [ ] C. Exercise chips in a row at the top; one entry card with big − / + steppers for Weight and Reps, one set at a time, "Add set 3" button, "Last time" at the top right of the card.
-- [ ] D. Logged exercise cards: "2 sets done", set rows with lines between, lime "Next session: 145 lb × 8" hint; "Add a note to this workout" row.
-- [ ] E. Calendar: big "Calendar" title, month name centred between arrows, tapping a day selects it (filled lime) and shows a summary card with "Open workout", plus a legend.
+- [x] A. Colours: always light (`Appearance.setColorScheme('light')`, `userInterfaceStyle: "light"`): sand pages, cream cards, deep green accent, tan `accentSoft` (`Colors.light`). Text on green is light. Red stays for delete.
+- [ ] B. Shapes: big rounded cream cards (radius ~20), pill buttons and pill number boxes, thin lines between rows inside cards.
+- [ ] C. Typeface like the mockup (a geometric sans such as DM Sans; needs a font package that works in Expo Go) and heavier page titles.
+- [ ] D. Calendar in a cream card with round arrow buttons; workout days tan, today filled green.
+
+The system tab bar (NativeTabs) cannot be drawn as the mockup's pill bar; only its colours can change.
 
 Earlier notes (still true unless replaced above):
 

@@ -8,21 +8,22 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
+  // The look the app actually uses (it is always light, see `src/app/_layout.tsx`):
+  // "Sand" — warm sand pages, cream cards, and one deep green accent.
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-    /** The app's one accent colour: a cobalt blue, like a 20 kg competition plate. */
-    accent: '#2457D6',
-    /** A pale wash of the accent, used to fill the days that have a workout. */
-    accentSoft: '#E1E9FC',
+    text: '#1F1F1C',
+    background: '#E6E1D7',
+    backgroundElement: '#F6F3EC',
+    backgroundSelected: '#D9D3C4',
+    textSecondary: '#6C685F',
+    /** The app's one accent colour: deep green. Text on top of it is light (`background`). */
+    accent: '#2E5A44',
+    /** A tan fill, for workout days and soft buttons. Text on it is the accent or `text`. */
+    accentSoft: '#D6CFBD',
     /** Thin lines between rows. */
-    separator: '#D8D9DE',
+    separator: '#DDD8CB',
   },
-  // The look the app actually uses (it is always dark, see `src/app/_layout.tsx`):
-  // near-black pages, slightly lighter cards, and one lime accent.
+  // An earlier dark look (near-black with a lime accent). Not used at the moment.
   dark: {
     text: '#F4F5F6',
     background: '#0B0C0F',

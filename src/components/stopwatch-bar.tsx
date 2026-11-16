@@ -1,4 +1,3 @@
-import { router, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,18 +18,20 @@ import {
 const TAB_BAR_HEIGHT = 49;
 
 /**
- * A small stopwatch that always floats just above the tab bar, on every screen except
- * the Stopwatch tab itself (which already shows the big one).
+ * The app's stopwatch: a small bar that always floats just above the tab bar, on every
+ * screen. It has no page of its own.
  */
 export function StopwatchBar() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const pathname = usePathname();
   const stopwatch = useStopwatch();
   const elapsed = useElapsed(stopwatch);
   const running = stopwatch.startedAt !== null;
 
-  if (pathname === '/stopwatch') return null;
+  const lapCount = stopwatch.laps.length;
+  // How long the latest lap took: its end time minus the end time of the lap before it.
+  const lastLap =
+    lapCount > 0 ? stopwatch.laps[lapCount - 1] - (lapCount > 1 ? stopwatch.laps[lapCount - 2] : 0) : 0;
   // At zero there is nothing to reset, so the Reset button is dimmed.
   const isZero = !running && elapsed === 0;
 
@@ -44,16 +45,17 @@ export function StopwatchBar() {
           styles.bar,
           { backgroundColor: theme.backgroundElement, borderColor: theme.separator },
         ]}>
-        {/* Tapping the time opens the Stopwatch tab, where the laps are listed. */}
-        <Pressable
-          onPress={() => router.navigate('/stopwatch')}
-          accessibilityRole="button"
-          accessibilityLabel={`Stopwatch ${formatStopwatch(elapsed)}. Open stopwatch`}
-          style={({ pressed }) => [styles.timeArea, pressed && styles.pressed]}>
+        <View style={styles.timeArea} accessible accessibilityLabel={`Stopwatch ${formatStopwatch(elapsed)}`}>
           <ThemedText style={[styles.time, !running && { color: theme.textSecondary }]}>
             {formatStopwatch(elapsed)}
           </ThemedText>
-        </Pressable>
+          {/* The most recent lap: its number and how long it took. */}
+          {lapCount > 0 && (
+            <ThemedText style={styles.lap} themeColor="textSecondary" numberOfLines={1}>
+              Lap {lapCount} {formatStopwatch(lastLap)}
+            </ThemedText>
+          )}
+        </View>
 
         <Pressable
           onPress={running ? addLap : resetStopwatch}
@@ -116,8 +118,15 @@ const styles = StyleSheet.create({
   },
   timeArea: {
     flex: 1,
-    height: '100%',
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: Spacing.two,
+  },
+  lap: {
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    fontVariant: ['tabular-nums'],
   },
   time: {
     fontFamily: Fonts?.rounded,
