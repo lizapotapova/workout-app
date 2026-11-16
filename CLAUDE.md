@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Workout app
+# Next Rep (workout app)
 
 ## Who I'm working with
 
@@ -79,6 +79,16 @@ The user wants the bottom tab bar kept, with Calendar and Settings tabs (they re
 - `src/components/progression-hint.tsx` — the "Suggested: …" box shown in the add form.
 - `src/lib/numbers.ts` — `parseNumber` / `parseWeight` / `parseReps` for typed input.
 - `src/lib/dates.ts` — `dayKey` / `parseDayKey` (local-time `YYYY-MM-DD`).
+
+## Name and icon (2026-11-16)
+
+The app is called **Next Rep** (`name` in app.json; the slug and folder are still `workout-app`).
+
+Icon: the user supplied their own on 2026-11-16 (`~/Desktop/icon.png`, copied unchanged to `assets/images/icon.png`): a cream barbell (`#F8F6F2`) on forest green (`#2A5A3F`). My earlier tries (dumbbell, kettlebell on sand) were dropped. The splash screen, start-up animation and Android icons use a redraw of the same barbell in the same colours (`assets/images/icon-source.svg`, converted with `sips -s format png`). The template's `assets/expo.icon` was removed so iOS uses `icon.png`. In Expo Go the icon and name are not shown on the home screen.
+
+## Export and import (2026-11-15)
+
+Settings → "Your data": "Export my workouts" writes one JSON file (`src/lib/backup.ts`: sets, workout names, exercise notes, weight unit, progression settings) and opens the share sheet; "Import from a file" picks such a file, checks it, asks, then replaces all of those. Libraries added (all in Expo Go): `expo-file-system` (new `File`/`Paths` API), `expo-sharing`, `expo-document-picker`.
 
 ## Progression formula (given by the user on 2026-11-13, simplified the same day)
 

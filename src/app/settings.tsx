@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, StopwatchBarSpace, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAutosave } from '@/hooks/use-autosave';
+import { exportWorkouts, pickBackup } from '@/lib/backup';
 import { useTheme } from '@/hooks/use-theme';
 import { parseNumber } from '@/lib/numbers';
 import { type ProgressionSettings, type Steps } from '@/lib/progression';
@@ -87,17 +88,52 @@ export default function SettingsScreen() {
     );
   });
 
+  const reload = useCallback(() => {
+    loadProgressionSettings()
+      .then(setSettings)
+      .catch(() => Alert.alert('Could not load the settings'));
+    loadUnit()
+      .then(setUnit)
+      .catch(() => {});
+  }, []);
+
   // Re-read everything each time this tab is opened.
-  useFocusEffect(
-    useCallback(() => {
-      loadProgressionSettings()
-        .then(setSettings)
-        .catch(() => Alert.alert('Could not load the settings'));
-      loadUnit()
-        .then(setUnit)
-        .catch(() => {});
-    }, []),
-  );
+  useFocusEffect(reload);
+
+  function exportData() {
+    exportWorkouts().catch(() => Alert.alert('Could not export', 'Please try again.'));
+  }
+
+  // Importing replaces everything, so it shows what is in the file and asks first.
+  async function importData() {
+    try {
+      const backup = await pickBackup();
+      if (!backup) return;
+      const sets = backup.setCount === 1 ? '1 set' : `${backup.setCount} sets`;
+      const days = backup.dayCount === 1 ? '1 day' : `${backup.dayCount} days`;
+      Alert.alert(
+        'Replace all your data?',
+        `This file${backup.exportedOn ? ` from ${backup.exportedOn}` : ''} has ${sets} on ${days}. Everything in the app now (workouts, names, notes and settings) will be replaced by it.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Replace',
+            style: 'destructive',
+            onPress: () =>
+              backup
+                .restore()
+                .then(() => {
+                  reload();
+                  Alert.alert('Import finished', `Restored ${sets} on ${days}.`);
+                })
+                .catch(() => Alert.alert('Could not import', 'Please try again.')),
+          },
+        ],
+      );
+    } catch (error) {
+      Alert.alert('Could not import', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }
 
   if (!settings) return <ThemedView style={styles.container} />;
 
@@ -198,6 +234,30 @@ export default function SettingsScreen() {
                 ` ${ownCount === 1 ? '1 exercise has' : `${ownCount} exercises have`} their own step sizes, which are kept.`}
             </ThemedText>
           </ThemedView>
+
+          <ThemedText style={styles.subheading}>Your data</ThemedText>
+
+          <ThemedView type="backgroundElement" style={styles.card}>
+            <Pressable
+              onPress={exportData}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.dataRow, pressed && styles.pressed]}>
+              <ThemedText style={styles.rowLabel}>Export my workouts</ThemedText>
+              <ThemedText themeColor="textSecondary">›</ThemedText>
+            </Pressable>
+            <View style={[styles.line, { backgroundColor: theme.separator }]} />
+            <Pressable
+              onPress={importData}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.dataRow, pressed && styles.pressed]}>
+              <ThemedText style={styles.rowLabel}>Import from a file</ThemedText>
+              <ThemedText themeColor="textSecondary">›</ThemedText>
+            </Pressable>
+            <ThemedText type="small" themeColor="textSecondary">
+              Export saves all your workouts, names, notes and settings as one file. Import
+              replaces everything in the app with the contents of such a file.
+            </ThemedText>
+          </ThemedView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -237,6 +297,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
+  },
+  dataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 36,
+  },
+  line: {
+    height: StyleSheet.hairlineWidth,
   },
   row: {
     flexDirection: 'row',
