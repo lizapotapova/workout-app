@@ -74,22 +74,29 @@ The user wants the bottom tab bar kept, with Calendar and Settings tabs (they re
 - `src/hooks/use-autosave.ts` — debounced save used by the note boxes and the workout name.
 - `src/lib/sets-storage.ts` — the `WorkoutSet` type plus loading/saving sets with AsyncStorage (key `workout-sets-v1`). Sets are kept sorted newest date first. Also stores one workout name per day (key `workout-names-v1`).
 - `src/lib/exercises.ts` — `groupByExercise` and `formatSet`.
-- `src/app/settings.tsx` — the Settings tab: weeks between steps, lower/upper step sizes, per-exercise body part and overrides. Autosaves.
+- `src/app/settings.tsx` — the Settings tab: weight unit, and one Progression card (weeks between steps, reps per step, weight per step). Autosaves.
 - `src/components/progression-hint.tsx` — the "Suggested: …" box shown in the add form.
 - `src/lib/numbers.ts` — `parseNumber` / `parseWeight` / `parseReps` for typed input.
 - `src/lib/dates.ts` — `dayKey` / `parseDayKey` (local-time `YYYY-MM-DD`).
 
-## Progression formula (given by the user on 2026-11-13)
+## Progression formula (given by the user on 2026-11-13, simplified the same day)
 
-In the user's words: lower body +2 reps for every exercise (+1 rep for split squat) every two weeks, after two weeks same reps and +2.5 lb (+5 lb for glute bridge); upper body +2 reps every two weeks, and after two weeks +2.5 lb and same reps.
+The rule: every `periodWeeks` weeks an exercise takes one step, alternating more reps, then more weight.
 
-How it is built (`src/lib/progression.ts`, pure and testable; storage in `src/lib/progression-storage.ts`, key `progression-settings-v1`):
+Settings (`src/lib/progression.ts`, storage in `src/lib/progression-storage.ts`, key `progression-settings-v1`): `{ periodWeeks, steps: { reps, weight }, exercises: { key: { name, reps?, weight? } } }`. The user asked to remove the Lower/Upper body split and the per-exercise list from Settings; old saved settings are converted on load (`fromOldSettings`) so every exercise keeps its numbers (e.g. Glute bridge weight 5, Split squat reps 1).
+
+Requested in the same message, in order:
+
+- [x] Settings: one card with three numbers for all exercises; bottom padding fixed so the stopwatch bar does not cover the last item (ScrollView pages add `insets.bottom`).
+- [ ] Per-exercise reps/weight step set "from that exercise's own screen". There is no exercise screen yet: plan is a new page opened by tapping the exercise name on its card.
+- [ ] Today screen: one short line per exercise with where it is in the cycle and what the next step will be.
+
+How the suggestion is worked out:
 
 - A session's level = weight and reps of its first set. The level starts on the first of the back-to-back sessions sharing it.
-- Once `periodWeeks` (2) weeks have passed since then, the suggestion takes one step, added to every set of the last session. Steps alternate: reps first, then weight, then reps… (the kind is the opposite of the step that led to the current level).
+- Once `periodWeeks` weeks have passed since then, the suggestion takes one step, added to every set of the last session. Steps alternate: reps first, then weight, then reps… (the kind is the opposite of the step that led to the current level).
 - Before that, the suggestion is "same as last time" plus the date of the next step.
-- Step sizes come from the exercise's body part (lower/upper), with optional per-exercise overrides. Exercises without settings count as lower body. Weight steps are added in whatever unit the sets were logged in.
-- The arrows and bracketed numbers in the user's old notes (`170lb•12 ⬆️(2)`) marked these increases; showing them in the app has not been asked for.
+- Weight steps are plain numbers, added in the unit currently chosen in Settings.
 
 ## Look and feel
 

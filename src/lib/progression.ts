@@ -7,18 +7,15 @@ import { type WeightUnit, type WorkoutSet } from '@/lib/sets-storage';
 //   Every `periodWeeks` weeks an exercise takes one step up. The steps take turns:
 //   first more reps (same weight), then more weight (same reps), then more reps again…
 //
-// How big a step is depends on whether the exercise is lower body or upper body, and a
-// single exercise can have its own numbers (for example split squat: +1 rep).
-
-export type BodyPart = 'lower' | 'upper';
+// How big a step is comes from two numbers that apply to every exercise. A single
+// exercise can have its own numbers instead (for example glute bridge: +5 weight).
 
 /** How much one step adds. */
 export type Steps = { reps: number; weight: number };
 
-/** The settings for one exercise. `reps` / `weight` are only set when they differ from its body part's. */
+/** One exercise's own step sizes. `reps` / `weight` are only set when they differ from the general ones. */
 export type ExerciseRule = {
   name: string;
-  bodyPart: BodyPart;
   reps?: number;
   weight?: number;
 };
@@ -26,30 +23,28 @@ export type ExerciseRule = {
 export type ProgressionSettings = {
   /** How many weeks to stay at one level before the next step. */
   periodWeeks: number;
-  lower: Steps;
-  upper: Steps;
-  /** Per-exercise settings, keyed by `exerciseKey(name)`. */
+  /** The step sizes for every exercise that doesn't have its own. */
+  steps: Steps;
+  /** Per-exercise step sizes, keyed by `exerciseKey(name)`. */
   exercises: Record<string, ExerciseRule>;
 };
 
 export const DEFAULT_SETTINGS: ProgressionSettings = {
   periodWeeks: 2,
-  lower: { reps: 2, weight: 2.5 },
-  upper: { reps: 2, weight: 2.5 },
+  steps: { reps: 2, weight: 2.5 },
   exercises: {
-    'split squat': { name: 'Split squat', bodyPart: 'lower', reps: 1 },
-    'glute bridge': { name: 'Glute bridge', bodyPart: 'lower', weight: 5 },
+    'split squat': { name: 'Split squat', reps: 1 },
+    'glute bridge': { name: 'Glute bridge', weight: 5 },
   },
 };
-
-/** An exercise that has no settings yet counts as this body part. */
-export const DEFAULT_BODY_PART: BodyPart = 'lower';
 
 /** The step sizes that apply to one exercise. */
 export function stepsFor(settings: ProgressionSettings, exercise: string): Steps {
   const rule = settings.exercises[exerciseKey(exercise)];
-  const group = settings[rule?.bodyPart ?? DEFAULT_BODY_PART];
-  return { reps: rule?.reps ?? group.reps, weight: rule?.weight ?? group.weight };
+  return {
+    reps: rule?.reps ?? settings.steps.reps,
+    weight: rule?.weight ?? settings.steps.weight,
+  };
 }
 
 export type SuggestedSet = { weight: number; reps: number; unit?: WeightUnit };

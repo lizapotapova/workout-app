@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -31,6 +31,7 @@ function buildMonthCells(year: number, month: number): (Date | null)[] {
 
 export default function CalendarScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const today = new Date();
 
   const [sets, setSets] = useState<WorkoutSet[]>([]);
@@ -67,7 +68,12 @@ export default function CalendarScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          // Room at the bottom for the tab bar and the floating stopwatch bar.
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + BottomTabInset + StopwatchBarSpace + Spacing.two },
+          ]}>
           {/* The month name is the page's headline. Tapping it jumps back to today. */}
           <View style={styles.monthHeader}>
             <Pressable
@@ -169,7 +175,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + StopwatchBarSpace + Spacing.two,
     gap: Spacing.three,
   },
   monthHeader: {

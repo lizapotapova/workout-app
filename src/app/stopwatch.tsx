@@ -1,5 +1,5 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -17,6 +17,7 @@ import {
 
 export default function StopwatchScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const stopwatch = useStopwatch();
   const running = stopwatch.startedAt !== null;
 
@@ -79,7 +80,11 @@ export default function StopwatchScreen() {
         <FlatList
           data={laps}
           keyExtractor={(lap) => String(lap.number)}
-          contentContainerStyle={styles.laps}
+          // Room at the bottom so the last lap can be scrolled clear of the tab bar.
+          contentContainerStyle={[
+            styles.laps,
+            { paddingBottom: insets.bottom + BottomTabInset + Spacing.three },
+          ]}
           renderItem={({ item, index }) => (
             <View
               style={[
@@ -150,7 +155,6 @@ const styles = StyleSheet.create({
   },
   laps: {
     paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
   },
   lap: {
     flexDirection: 'row',

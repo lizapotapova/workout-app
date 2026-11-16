@@ -1,32 +1,20 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, StopwatchBarSpace, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAutosave } from '@/hooks/use-autosave';
 import { useTheme } from '@/hooks/use-theme';
-import { exerciseKey } from '@/lib/exercises';
 import { parseNumber } from '@/lib/numbers';
-import {
-  DEFAULT_BODY_PART,
-  type BodyPart,
-  type ExerciseRule,
-  type ProgressionSettings,
-  type Steps,
-} from '@/lib/progression';
+import { type ProgressionSettings, type Steps } from '@/lib/progression';
 import { loadProgressionSettings, saveProgressionSettings } from '@/lib/progression-storage';
-import { loadSets, loadUnit, saveUnit, type WeightUnit } from '@/lib/sets-storage';
+import { loadUnit, saveUnit, type WeightUnit } from '@/lib/sets-storage';
 
 const WARNING_COLOR = '#E5484D';
 const UNITS: WeightUnit[] = ['kg', 'lb'];
-const BODY_PARTS: { value: BodyPart; label: string }[] = [
-  { value: 'lower', label: 'Lower' },
-  { value: 'upper', label: 'Upper' },
-];
-
 type NumberBoxProps = {
   label: string;
   /** The saved number. `undefined` means "not set" (only allowed with `emptyMeans`). */
@@ -81,13 +69,11 @@ function NumberBox({ label, value, emptyMeans, whole, min, onChange }: NumberBox
   );
 }
 
-/** The Settings tab: the numbers used by the progression formula. */
+/** The Settings tab: the weight unit and the three numbers of the progression formula. */
 export default function SettingsScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [settings, setSettings] = useState<ProgressionSettings | null>(null);
-  // Names of the exercises that have been logged, to list alongside the ones with settings.
-  const [loggedNames, setLoggedNames] = useState<string[]>([]);
-  const [newName, setNewName] = useState('');
   const [unit, setUnit] = useState<WeightUnit>('kg');
 
   function chooseUnit(next: WeightUnit) {
@@ -101,15 +87,12 @@ export default function SettingsScreen() {
     );
   });
 
-  // Re-read everything each time this tab is opened, so newly logged exercises show up.
+  // Re-read everything each time this tab is opened.
   useFocusEffect(
     useCallback(() => {
       loadProgressionSettings()
         .then(setSettings)
         .catch(() => Alert.alert('Could not load the settings'));
-      loadSets()
-        .then((sets) => setLoggedNames(sets.map((set) => set.exercise.trim())))
-        .catch(() => {});
       loadUnit()
         .then(setUnit)
         .catch(() => {});
@@ -123,38 +106,23 @@ export default function SettingsScreen() {
     autosave.change(next);
   }
 
-  function updateSteps(bodyPart: BodyPart, changes: Partial<Steps>) {
+  function updateSteps(changes: Partial<Steps>) {
     if (!settings) return;
-    update({ ...settings, [bodyPart]: { ...settings[bodyPart], ...changes } });
+    update({ ...settings, steps: { ...settings.steps, ...changes } });
   }
 
-  function updateExercise(name: string, changes: Partial<ExerciseRule>) {
-    if (!settings) return;
-    const key = exerciseKey(name);
-    const current = settings.exercises[key] ?? { name, bodyPart: DEFAULT_BODY_PART };
-    update({ ...settings, exercises: { ...settings.exercises, [key]: { ...current, ...changes } } });
-  }
-
-  function addExercise() {
-    const name = newName.trim();
-    if (name === '') return;
-    updateExercise(name, {});
-    setNewName('');
-  }
-
-  // Every exercise that has its own settings or has been logged, in alphabetical order.
-  const names = new Map<string, string>();
-  for (const rule of Object.values(settings.exercises)) names.set(exerciseKey(rule.name), rule.name);
-  for (const name of loggedNames) {
-    if (!names.has(exerciseKey(name))) names.set(exerciseKey(name), name);
-  }
-  const exercises = [...names.values()].sort((a, b) => a.localeCompare(b));
+  const ownCount = Object.keys(settings.exercises).length;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          // The bottom padding leaves room for the tab bar and the floating stopwatch bar,
+          // so the last item can be scrolled clear of them.
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + BottomTabInset + StopwatchBarSpace + Spacing.three },
+          ]}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets>
@@ -191,11 +159,6 @@ export default function SettingsScreen() {
           </ThemedView>
 
           <ThemedText style={styles.subheading}>Progression</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            After staying at the same weight and reps for the number of weeks below, an exercise
-            takes one step up. Steps take turns: first more reps, then more weight, then more reps
-            again. Changes here save by themselves.
-          </ThemedText>
 
           <ThemedView type="backgroundElement" style={styles.card}>
             <View style={styles.row}>
@@ -208,131 +171,33 @@ export default function SettingsScreen() {
                 onChange={(value) => value !== undefined && update({ ...settings, periodWeeks: value })}
               />
             </View>
-          </ThemedView>
-
-          {BODY_PARTS.map(({ value: bodyPart, label }) => (
-            <ThemedView key={bodyPart} type="backgroundElement" style={styles.card}>
-              <ThemedText type="smallBold">{label} body</ThemedText>
-              <View style={styles.row}>
-                <ThemedText style={styles.rowLabel}>Reps added per step</ThemedText>
-                <NumberBox
-                  label={`${label} body reps added per step`}
-                  value={settings[bodyPart].reps}
-                  whole
-                  min={0}
-                  onChange={(value) => value !== undefined && updateSteps(bodyPart, { reps: value })}
-                />
-              </View>
-              <View style={styles.row}>
-                <ThemedText style={styles.rowLabel}>Weight added per step</ThemedText>
-                <NumberBox
-                  label={`${label} body weight added per step`}
-                  value={settings[bodyPart].weight}
-                  min={0}
-                  onChange={(value) =>
-                    value !== undefined && updateSteps(bodyPart, { weight: value })
-                  }
-                />
-              </View>
-            </ThemedView>
-          ))}
-
-          <View style={styles.sectionText}>
-            <ThemedText type="smallBold">Exercises</ThemedText>
+            <View style={styles.row}>
+              <ThemedText style={styles.rowLabel}>Reps added per step</ThemedText>
+              <NumberBox
+                label="Reps added per step"
+                value={settings.steps.reps}
+                whole
+                min={0}
+                onChange={(value) => value !== undefined && updateSteps({ reps: value })}
+              />
+            </View>
+            <View style={styles.row}>
+              <ThemedText style={styles.rowLabel}>Weight added per step ({unit})</ThemedText>
+              <NumberBox
+                label="Weight added per step"
+                value={settings.steps.weight}
+                min={0}
+                onChange={(value) => value !== undefined && updateSteps({ weight: value })}
+              />
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
-              Pick lower or upper body for each exercise. Fill in Reps or Weight only if that
-              exercise uses a different number; the grey number is what applies otherwise.
+              After this many weeks at the same weight and reps, an exercise takes one step up.
+              Steps take turns: more reps, then more weight, then more reps again. These numbers
+              apply to every exercise and save by themselves.
+              {ownCount > 0 &&
+                ` ${ownCount === 1 ? '1 exercise has' : `${ownCount} exercises have`} their own step sizes, which are kept.`}
             </ThemedText>
-          </View>
-
-          {exercises.map((name) => {
-            const rule = settings.exercises[exerciseKey(name)];
-            const bodyPart = rule?.bodyPart ?? DEFAULT_BODY_PART;
-            return (
-              <ThemedView key={exerciseKey(name)} type="backgroundElement" style={styles.card}>
-                <View style={styles.row}>
-                  <ThemedText type="smallBold" style={styles.rowLabel}>
-                    {name}
-                  </ThemedText>
-                  <View style={[styles.toggle, { backgroundColor: theme.background }]}>
-                    {BODY_PARTS.map((option) => {
-                      const selected = option.value === bodyPart;
-                      return (
-                        <Pressable
-                          key={option.value}
-                          onPress={() => updateExercise(name, { bodyPart: option.value })}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected }}
-                          accessibilityLabel={`${name}: ${option.label} body`}
-                          style={[styles.toggleOption, selected && { backgroundColor: theme.accent }]}>
-                          <ThemedText
-                            type="small"
-                            style={{ color: selected ? theme.background : theme.textSecondary }}>
-                            {option.label}
-                          </ThemedText>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-                <View style={styles.row}>
-                  <ThemedText type="small" themeColor="textSecondary" style={styles.rowLabel}>
-                    Reps per step
-                  </ThemedText>
-                  {/* `key` resets the box so its grey number follows the body part. */}
-                  <NumberBox
-                    key={`reps-${bodyPart}`}
-                    label={`${name} reps added per step`}
-                    value={rule?.reps}
-                    emptyMeans={settings[bodyPart].reps}
-                    whole
-                    min={0}
-                    onChange={(value) => updateExercise(name, { reps: value })}
-                  />
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Weight
-                  </ThemedText>
-                  <NumberBox
-                    key={`weight-${bodyPart}`}
-                    label={`${name} weight added per step`}
-                    value={rule?.weight}
-                    emptyMeans={settings[bodyPart].weight}
-                    min={0}
-                    onChange={(value) => updateExercise(name, { weight: value })}
-                  />
-                </View>
-              </ThemedView>
-            );
-          })}
-
-          <View style={styles.row}>
-            <TextInput
-              style={[
-                styles.nameInput,
-                { backgroundColor: theme.backgroundElement, color: theme.text },
-              ]}
-              placeholder="Add an exercise by name"
-              placeholderTextColor={theme.textSecondary}
-              value={newName}
-              onChangeText={setNewName}
-              onSubmitEditing={addExercise}
-              autoCapitalize="sentences"
-              autoCorrect={false}
-              returnKeyType="done"
-            />
-            <Pressable
-              onPress={addExercise}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.addButton,
-                { backgroundColor: theme.accent },
-                pressed && styles.pressed,
-              ]}>
-              <ThemedText type="smallBold" style={{ color: theme.background }}>
-                Add
-              </ThemedText>
-            </Pressable>
-          </View>
+          </ThemedView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -352,7 +217,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.two,
-    paddingBottom: BottomTabInset + StopwatchBarSpace + Spacing.three,
     gap: Spacing.two,
   },
   heading: {
@@ -367,10 +231,6 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontWeight: 700,
     marginTop: Spacing.two,
-  },
-  sectionText: {
-    gap: Spacing.half,
-    paddingTop: Spacing.two,
   },
   card: {
     gap: Spacing.two,
@@ -408,18 +268,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: Spacing.one,
     borderRadius: 6,
-  },
-  nameInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingHorizontal: 12,
-    paddingVertical: Spacing.two,
-    borderRadius: 12,
-  },
-  addButton: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 12,
   },
   pressed: {
     opacity: 0.6,
