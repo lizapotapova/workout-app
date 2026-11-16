@@ -52,7 +52,11 @@ export async function exportWorkouts(): Promise<void> {
     data,
   };
 
-  const file = new File(Paths.cache, `workouts-${dayKey(new Date())}.json`);
+  // The name carries the date and time, e.g. "workouts-2026-11-16-1530.json", so two
+  // exports made on the same day can be told apart.
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  const file = new File(Paths.cache, `workouts-${dayKey(now)}-${time}.json`);
   file.create({ overwrite: true });
   await file.write(JSON.stringify(backup, null, 2));
 
@@ -68,7 +72,7 @@ export type PickedBackup = {
   /** How many sets the file holds, and on how many different days. */
   setCount: number;
   dayCount: number;
-  /** When the file was exported, e.g. "Nov 15, 2026". Empty if unknown. */
+  /** When the file was exported, e.g. "Nov 15, 2026, 3:30 PM". Empty if unknown. */
   exportedOn: string;
   /** Replaces everything in the app with the file's contents. */
   restore: () => Promise<void>;
@@ -121,7 +125,13 @@ export async function pickBackup(): Promise<PickedBackup | null> {
     dayCount: new Set(sets.map((set) => dayKey(new Date(set.createdAt)))).size,
     exportedOn: Number.isNaN(exported.getTime())
       ? ''
-      : exported.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+      : exported.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
     restore: async () => {
       await loadSets();
       const toSave: [string, string][] = [];
